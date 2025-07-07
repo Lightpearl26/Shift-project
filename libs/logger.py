@@ -16,11 +16,18 @@ from os.path import join, getctime, exists
 from os import listdir, mkdir, remove
 from threading import current_thread
 from time import ctime, localtime
+import traceback
+import sys
 
 # Create module constants
 LOG_FOLDER: str = join("cache", "logs")
 
 # Create object
+class LoggerInterrupt(Exception):
+    """
+    interruption of program from logger
+    """
+
 class Logger:
     """
     Logger object
@@ -122,12 +129,13 @@ class Logger:
         strflog = f"[ {level} ][ {threadname} ][ {time} ]: {message}"
         return strflog
 
-    def fatal(self, threadname: str, message: str) -> str:
+    def fatal(self, message: str) -> str:
         """
         this methods logs a debug message and return the string of the corresponding log
         """
         level = "Fatal"
         time = ctime()
+        threadname = current_thread().name
         log = {
             "level": level,
             "time": time,
@@ -135,15 +143,26 @@ class Logger:
             "message": message
         }
         self.logs.append(log)
-        strflog = f"[ {level} ][ {threadname} ][ {time} ]: {message}"
-        return strflog
+        raise LoggerInterrupt
 
+    # create data access methods
     def get_strflog(self, log: dict[str, str]) -> str:
         """
         get the string format of a log
         """
         strflog = f"[ {log["level"]} ][ {log["thread"]} ][ {log["time"]} ]: {log["message"]}"
         return strflog
+
+    def get_last(self, level: str) -> dict[str, str] | None:
+        """
+        Return last log of level specified
+        """
+        last = None
+        for log in self.logs[::-1]:
+            if log["level"] == level:
+                last = log
+                break
+        return last
 
     def save(self) -> None:
         """
@@ -153,3 +172,13 @@ class Logger:
             for log in self.logs:
                 file.write(self.get_strflog(log)+"\n")
             file.close()
+
+    def traceback(self, tb) -> None:
+        """
+        Print the Traceback from logger errors and fatals
+        """
+        stacklines = traceback.format_tb(tb)[:-1]
+        stacklines[-1] = stacklines[-1].split("\n")[0]+"\n"
+        print("Traceback (most recent call last):\n"+
+              "".join(stacklines)+
+              self.get_strflog(self.get_last("Fatal")), file=sys.stderr, end="")

@@ -17,7 +17,7 @@ copyrights: (c) Franck Lafiteau (code)
 """
 
 # import libs
-from libs import logger as l
+from libs.logger import Logger, LoggerInterrupt
 
 # Create main function of the script
 def main() -> None:
@@ -25,9 +25,15 @@ def main() -> None:
     Main function of the script
     this function is called when launching the script
     """
-    logger = l.Logger()
-    logger.info("Hello World !")
-    logger.save()
+    logger = Logger()
+    try:
+        # Here we execute code
+        logger.info("Hello World !")
+
+    except LoggerInterrupt as e:
+        logger.traceback(e.__traceback__)
+    finally:
+        logger.save()
 
 if __name__ == "__main__":
     main()
