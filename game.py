@@ -16,13 +16,18 @@ copyrights: (c) Franck Lafiteau (code)
             (c) Guillaume Castaing (main idea, level design, graphics)
 """
 
+# import libs
+from libs import logger as l
+
 # Create main function of the script
 def main() -> None:
     """
     Main function of the script
     this function is called when launching the script
     """
-    print("Hello world !")
+    logger = l.Logger()
+    logger.info("Hello World !")
+    logger.save()
 
 if __name__ == "__main__":
     main()
