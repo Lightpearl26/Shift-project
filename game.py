@@ -16,8 +16,8 @@ copyrights: (c) Franck Lafiteau (code)
             (c) Guillaume Castaing (main idea, level design, graphics)
 """
 
-# import libs
-from libs.logger import Logger, LoggerInterrupt
+# import logger
+from libs import logger, LoggerInterrupt
 
 # Create main function of the script
 def main() -> None:
@@ -25,7 +25,6 @@ def main() -> None:
     Main function of the script
     this function is called when launching the script
     """
-    logger = Logger()
     try:
         # Here we execute code
         logger.info("Hello World !")

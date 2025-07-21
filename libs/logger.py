@@ -144,14 +144,26 @@ class Logger:
         }
         self.logs.append(log)
         raise LoggerInterrupt
+    
+    def get_logs(self, level: str) -> list[dict[str, str]]:
+        """
+        get all logs of level specified
+        """
+        output = []
+        for log in self.logs:
+            if log["level"] == level:
+                output.append(log)
+        return output
 
     # create data access methods
-    def get_strflog(self, log: dict[str, str]) -> str:
+    def get_strflog(self, log: dict[str, str]|None) -> str:
         """
         get the string format of a log
         """
-        strflog = f"[ {log["level"]} ][ {log["thread"]} ][ {log["time"]} ]: {log["message"]}"
-        return strflog
+        if log:
+            strflog = f"[ {log["level"]} ][ {log["thread"]} ][ {log["time"]} ]: {log["message"]}"
+            return strflog
+        return ""
 
     def get_last(self, level: str) -> dict[str, str] | None:
         """
@@ -177,8 +189,13 @@ class Logger:
         """
         Print the Traceback from logger errors and fatals
         """
+        errors = self.get_logs("Error")
         stacklines = traceback.format_tb(tb)[:-1]
         stacklines[-1] = stacklines[-1].split("\n")[0]+"\n"
         print("Traceback (most recent call last):\n"+
               "".join(stacklines)+
               self.get_strflog(self.get_last("Fatal")), file=sys.stderr, end="")
+        if errors:
+            print("\n\nDuring process several errors occurs:\n"+"\n".join(
+                self.get_strflog(error) for error in errors
+            ), file=sys.stderr, end="")
