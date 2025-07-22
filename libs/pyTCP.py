@@ -16,6 +16,7 @@ from threading import Thread, Lock
 from json import dumps, loads, JSONDecodeError
 from socket import socket as SocketType, AF_INET, SOCK_STREAM, timeout
 from queue import Queue
+from miniupnpc import UPnP
 from uuid import uuid4, UUID
 
 # get main logger of the game
@@ -40,13 +41,13 @@ class ClientHandler(Thread):
         - queue: Queue[tuple[UUID, dict[str, bool]]] = queue where client data are stored
         - running: bool = state of the thread
     """
-    def __init__(self, uuid: UUID, client_socket: SocketType, listen_queue: Queue, conn_infos: address) -> None:
+    def __init__(self, uuid: UUID, client_socket: SocketType, listen_queue: Queue) -> None:
         Thread.__init__(self, name=f"Thread-of-client-{str(uuid)}")
         self.uuid: UUID = uuid
         self.socket: SocketType = client_socket
         self.queue: Queue[tuple[UUID, dict[str, bool]]] = listen_queue
         self.running: bool = True
-        logger.debug(f"ClientHandler of client {str(uuid)} with address {conn_infos} initialized")
+        logger.debug(f"ClientHandler of client {str(uuid)}")
 
     def run(self) -> None:
         """
@@ -84,6 +85,7 @@ class ServerSocket(SocketType):
         self.connection_handler: ConnectionHandler = ConnectionHandler(self)
         self.running: bool = True
         self.client_lock: Lock = Lock()
+        self.upnp: UPnP = UPnP()
         logger.info(f"Server initialized on {host}")
 
     def shutdown(self) -> None:
@@ -117,6 +119,8 @@ class ServerSocket(SocketType):
             logger.debug("Server socket is now closed")
         except OSError as e:
             logger.error(f"Server socket seems to be already closed: {e}")
+        
+        self.upnp.deleteportmapping(self.host[1], 'TCP')
 
     def send_to(self, uuid: UUID, msg: str) -> None:
         self.clients[uuid].socket.sendall(msg.encode())
@@ -129,11 +133,22 @@ class ServerSocket(SocketType):
         """
         runs the server
         """
+        self.upnp.discoverdelay = 10
+        self.upnp.discover()
+        self.upnp.selectigd()
+
+        self.upnp.addportmapping(self.host[1], 'TCP', self.upnp.lanaddr, self.host[1], '', '')
+
+        external_ip = self.upnp.externalipaddress()
+        logger.info(f"Port {self.host[1]} mapped to {external_ip}:{self.host[1]}")
+
         self.bind(self.host)
         self.settimeout(0.5)
         self.listen(5)
 
         self.connection_handler.start()
+
+        logger.info("Server has started")
 
         while self.running:
             with self.client_lock:
@@ -159,8 +174,8 @@ class ConnectionHandler(Thread):
         try:
             while self.running:
                 try:
-                    conn, addr = self.server.accept()
-                    handler = ClientHandler(uuid4(), conn, self.server.queue, addr)
+                    conn, _ = self.server.accept()
+                    handler = ClientHandler(uuid4(), conn, self.server.queue)
                     with self.server.client_lock:
                         self.server.clients[handler.uuid] = handler
                     handler.start()
