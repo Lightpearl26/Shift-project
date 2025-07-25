@@ -28,7 +28,7 @@ address = tuple[str, int]
 # create module constants
 LOCALHOST = ("localhost", 12345)
 
-# create module objects
+# create module server objects
 class ClientHandler(Thread):
     """
     ClientHandler object
@@ -47,7 +47,7 @@ class ClientHandler(Thread):
         self.socket: SocketType = client_socket
         self.queue: Queue[tuple[UUID, dict[str, bool]]] = listen_queue
         self.running: bool = True
-        logger.debug(f"ClientHandler of client {str(uuid)}")
+        logger.debug(f"ClientHandler of client {str(uuid)} initialized")
 
     def run(self) -> None:
         """
@@ -105,6 +105,7 @@ class ServerSocket(SocketType):
                 pass
 
             handler.join()
+            logger.debug(f"ClientHandler of client {str(handler.uuid)} stopped")
 
         logger.debug("All client threads terminated")
 
@@ -155,7 +156,7 @@ class ServerSocket(SocketType):
                 to_remove = [uuid for uuid, handler in self.clients.items() if not handler.running]
                 for uuid in to_remove:
                     self.clients.pop(uuid)
-                    logger.info(f"Client {uuid} removed from client list")
+                    logger.info(f"Client {uuid} removed from server list")
 
         self.shutdown()
 
@@ -177,8 +178,10 @@ class ConnectionHandler(Thread):
                     conn, _ = self.server.accept()
                     handler = ClientHandler(uuid4(), conn, self.server.queue)
                     with self.server.client_lock:
+                        logger.info(f"Successfully added Client {str(handler.uuid)} to server list")
                         self.server.clients[handler.uuid] = handler
                     handler.start()
+                    logger.debug(f"ClientHandler of client {str(handler.uuid)} started")
                 except timeout:
                     continue
         except Exception as e:

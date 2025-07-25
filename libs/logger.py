@@ -12,7 +12,7 @@ ________________________________________________________________________________
 """
 
 # import external modules
-from os.path import join, getctime, exists
+from os.path import join, getmtime, exists
 from os import listdir, mkdir, remove
 from threading import current_thread
 from time import ctime, localtime
@@ -45,7 +45,7 @@ class Logger:
 
         # We remove the Latest.log from the folder
         if exists(join(folder, "Latest.log")):
-            log_date = localtime(getctime(join(folder, "Latest.log")))
+            log_date = localtime(getmtime(join(folder, "Latest.log")))
             date = f"{log_date[0]}-{log_date[1]}-{log_date[2]}"
             date_folder = join(folder, date)
             if not exists(date_folder):
@@ -58,7 +58,7 @@ class Logger:
                 latest.close()
             remove(join(folder, "Latest.log"))
 
-        self.log_file = open(join(self.log_folder, "Latest.log"),"w", encoding="utf-8")
+        self.log_file = open(join(self.log_folder, "Latest.log"), "w+", encoding="utf-8")
 
         # log that the logger is initialized
         self.debug("Logger initialized")
