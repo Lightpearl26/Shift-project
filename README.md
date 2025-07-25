@@ -15,3 +15,20 @@ to help him during his journey
 ---
 
 (c) Copyrights *Lafiteau Franck* | *Castaing Guillaume*
+
+---
+## Installation Guide
+
+Install python version 3.13.2 or later
+
+Then on terminal use:
+
+```bash
+python -m venv venv
+
+.\venv\Scripts\activate
+
+pip install -r requirements.txt
+
+python game.py
+```
