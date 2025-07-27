@@ -1,0 +1,32 @@
+{
+    "Position": {
+      "x": 400,
+      "y": 500
+    },
+    "Velocity": {
+      "x": 0,
+      "y": 0
+    },
+    "Mass": {
+      "value": 5.0
+    },
+    "XDirection": {
+      "value": 1.0
+    },
+    "Jump": {
+      "strength": 2.5e4,
+      "duration": 0.15
+    },
+    "Hitbox": {
+      "x": 0,
+      "y": 0,
+      "width": 48,
+      "height": 96
+    },
+    "WallSticking": {},
+    "EntityCollisions": {"entities": []},
+    "MapCollisions": {},
+    "PlayerControlled": {},
+    "State": {},
+    "Properties": {}
+}

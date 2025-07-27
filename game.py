@@ -1,4 +1,4 @@
-#!venv/Scripts/python.exe
+#!venv\Scripts\python.exe
 #-*- coding: utf-8 -*-
 
 """
@@ -34,58 +34,51 @@ def main() -> None:
         logger.info("Hello World !")
 
         pygame.init()
-        screen = pygame.display.set_mode((800, 600))
+        screen = pygame.display.set_mode((48*21, 48*17))
         clock = pygame.time.Clock()
 
         # Crée moteur
         engine = level.Engine()
+        engine.camera.rect.size = (48*21, 48*17)
 
         # Ajout des systèmes
         engine.add_system(
-            "PlayerControlSystem",
-            "AISystem",
-            "DragSystem",
+            "TileAnimationSystem", # update Tilemap
+            "AISystem", # initiate AI-entity movement
+            "PlayerControlSystem", # initiate player movement
+            "DragSystem", # needs to be first to change velocity
             "GravitySystem",
             "JumpSystem",
-            "PhysicsSystem",
-            "EntityUpdateSystem",
+            "MovementSystem",
+            "PhysicsSystem", # needs to be after velocity-changing systems
+            "UpdateHitboxFromPositionSystem", # update entity hitbox with position
+            "EntityCollisionsSystem", # collisions with entity update
+            "MapCollisionsSystem", # collisions with map update
+            "UpdatePositionFromHitboxSystem"
         )
 
         # Crée une entité joueur
-        player = engine.create_entity()
-        engine.add_component(player, C.Position(Vector2(400, 500)))
-        engine.add_component(player, C.Velocity(Vector2(0, 0)))
-        engine.add_component(player, C.Mass(5.0))
-        engine.add_component(player, C.Drag(8.0))
-        engine.add_component(player, C.XDirection(1.0))
-        engine.add_component(player, C.Jump(strength=C.JUMP_STRENGTH*5.0, duration=0.15))
-        engine.add_component(player, C.Hitbox(Rect(0, 0, 32, 64)))
-        engine.add_component(player, C.PlayerControlled())
-
-        state = C.State()
-        state.flags |= C.EntityState.CAN_JUMP
-        engine.add_component(player, state)
-        engine.add_component(player, C.Properties())
+        player = engine.new_entity("player", overrides={"Position": {"x":72, "y": 200}})
 
         enemi = engine.create_entity()
-        engine.add_component(enemi, C.Position(Vector2(200, 516)))
+        engine.add_component(enemi, C.Position(Vector2(400, 524)))
         engine.add_component(enemi, C.Velocity(Vector2(0, 0)))
         engine.add_component(enemi, C.Mass(10.0))
-        engine.add_component(enemi, C.Drag(8.0))
         engine.add_component(enemi, C.XDirection(1.0))
-        engine.add_component(enemi, C.Jump(strength=C.JUMP_STRENGTH*10.0, duration=0.1))
-        engine.add_component(enemi, C.Hitbox(Rect(0, 0, 32, 32)))
+        engine.add_component(enemi, C.Jump(strength=C.JUMP_STRENGTH*5.0, duration=0.1))
+        engine.add_component(enemi, C.Hitbox(Rect(0, 0, 48, 48)))
+        engine.add_component(enemi, C.EntityCollisions([]))
+        engine.add_component(enemi, C.MapCollisions())
         engine.add_component(enemi, C.AI())
 
         state = C.State()
-        state.flags |= C.EntityState.CAN_JUMP
+        state.flags |= C.EntityState.ON_GROUND
         engine.add_component(enemi, state)
         engine.add_component(enemi, C.Properties())
 
 
         # Boucle principale
         running = True
-        GROUND_Y = 500  # sol fictif
 
         while running:
             dt = clock.tick(60) / 1000  # durée en secondes
@@ -95,43 +88,17 @@ def main() -> None:
 
             engine.update(dt)
 
-
-            # --- GESTION DU SOL ---
-            pos = engine.get_component(player, C.Position)
-            vel = engine.get_component(player, C.Velocity)
-            state = engine.get_component(player, C.State)
-
-            if pos.value.y >= GROUND_Y:
-                pos.value.y = GROUND_Y
-                vel.value.y = 0
-                state.flags |= C.EntityState.ON_GROUND
-                state.flags |= C.EntityState.CAN_JUMP
-            else:
-                state.flags &= ~C.EntityState.ON_GROUND
-
-            epos = engine.get_component(enemi, C.Position)
-            evel = engine.get_component(enemi, C.Velocity)
-            estate = engine.get_component(enemi, C.State)
-
-            if epos.value.y >= GROUND_Y+16:
-                epos.value.y = GROUND_Y+16
-                evel.value.y = 0
-                estate.flags |= C.EntityState.ON_GROUND
-                estate.flags |= C.EntityState.CAN_JUMP
-            else:
-                estate.flags &= ~C.EntityState.ON_GROUND
-
             # --- AFFICHAGE ---
             screen.fill((30, 30, 30))
 
-            # Joueur
+            engine.tilemap_renderer.render(engine.tilemap, screen, engine.camera)
+
             hitbox = engine.get_component(player, C.Hitbox)
             ehitbox = engine.get_component(enemi, C.Hitbox)
+
+            # Joueur
             pygame.draw.rect(screen, (0, 255, 0), hitbox.rect)
             pygame.draw.rect(screen, (255, 0, 0), ehitbox.rect)
-
-            # Sol fictif
-            pygame.draw.rect(screen, (100, 100, 100), pygame.Rect(0, GROUND_Y + 32, 800, 600 - GROUND_Y))
 
             pygame.display.flip()
 

@@ -17,6 +17,17 @@ class Idle(AILogic):
         # Do nothing -> it's idle
         state = engine.get_component(eid, C.State)
         jump = engine.get_component(eid, C.Jump)
+        xdir = engine.get_component(eid, C.XDirection)
         if random.random() >= 0.99 and state.flags & C.EntityState.CAN_JUMP:
             jump.direction = 90.0
             jump.time_left = jump.duration
+        if random.random() >= 0.8:
+            xdir.value = random.choice([-1.0, 1.0])
+        if random.random() >= 0.9:
+            if state.flags & C.EntityState.WALKING:
+                state.flags &= ~C.EntityState.WALKING
+                state.flags |= C.EntityState.RUNNING
+            elif state.flags & C.EntityState.RUNNING:
+                state.flags &= ~C.EntityState.RUNNING
+            else:
+                state.flags |= C.EntityState.WALKING

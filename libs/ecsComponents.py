@@ -1,4 +1,3 @@
-#ecsComponents.py
 # -*- coding: utf-8 -*-
 
 """
@@ -13,13 +12,13 @@ ________________________________________________________________________________
 """
 
 # importing external modules
-from typing import Any
+from typing import Callable
 from pygame import Vector2, Rect
 from enum import IntFlag, auto
 from dataclasses import dataclass
 
 # importing package modules
-from .ecsAI import AILogic, Idle
+from . import ecsAI
 
 
 # --------------------------
@@ -27,6 +26,15 @@ from .ecsAI import AILogic, Idle
 # --------------------------
 JUMP_STRENGTH: float = 1e4
 JUMP_DURATION: float = 0.2
+
+
+# --------------------------
+# | Base class             |
+# --------------------------
+class ComponentBase:
+    @classmethod
+    def from_dict(cls, data: dict):
+        return cls(**data)
 
 
 # --------------------------
@@ -63,45 +71,59 @@ class EntityState(IntFlag):
 
     # combined state
     IGNORE_GRAVITY = ON_GROUND | WALL_STICKING | FREEZED | DASHING | HANGING
-    CAN_JUMP = ON_GROUND | WALL_SLIDING | WALL_STICKING | HANGING
+    CAN_JUMP = ON_GROUND | WALL_SLIDING | WALL_STICKING | HANGING | CLIMBING
+    CAN_MOVE = ON_GROUND | FALLING
     MOVING = WALKING | RUNNING | JUMPING | DASHING | FALLING | WALL_SLIDING | CLIMBING
+    NO_DRAG = CROUCHING | WALL_STICKING | DASHING | HANGING | FREEZED | CLIMBING
 
 
 # --------------------------
 # | Components             |
 # --------------------------
 @dataclass
-class Position:
+class Position(ComponentBase):
     value: Vector2
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        x = data.get("x", 0)
+        y = data.get("y",0)
+        return cls(Vector2(x, y))
 
 
 @dataclass
-class Velocity:
+class Velocity(ComponentBase):
     value: Vector2
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        x = data.get("x", 0)
+        y = data.get("y",0)
+        return cls(Vector2(x, y))
 
 
 @dataclass
-class Mass:
+class Mass(ComponentBase):
     value: float = 1.0
 
 
 @dataclass
-class Properties:
+class Properties(ComponentBase):
     flags: EntityProperty = EntityProperty.NONE
 
 
 @dataclass
-class State:
+class State(ComponentBase):
     flags: EntityState = EntityState.NONE
 
 
 @dataclass
-class XDirection:
+class XDirection(ComponentBase):
     value: float = 1.0
 
 
 @dataclass
-class Jump:
+class Jump(ComponentBase):
     direction: float = 0.0 # angle in degree
     strength: float = JUMP_STRENGTH
     duration: float = JUMP_DURATION
@@ -109,7 +131,8 @@ class Jump:
 
 
 @dataclass
-class EntityCollisions:
+class EntityCollisions(ComponentBase):
+    entities: list[tuple[int, tuple[bool, bool, bool, bool]]]
     left: bool = False
     right: bool = False
     top: bool = False
@@ -139,11 +162,12 @@ class EntityCollisions:
         self.left = False
         self.right = False
         self.top = False
-        self.botton = False
+        self.bottom = False
+        self.entities = []
 
 
 @dataclass
-class MapCollisions:
+class MapCollisions(ComponentBase):
     left: bool = False
     right: bool = False
     top: bool = False
@@ -173,12 +197,20 @@ class MapCollisions:
         self.left = False
         self.right = False
         self.top = False
-        self.botton = False
+        self.bottom = False
 
 
 @dataclass
-class Hitbox:
+class Hitbox(ComponentBase):
     rect: Rect
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        x = data.get("x", 0)
+        y = data.get("y", 0)
+        width = data.get("width", 0)
+        height = data.get("height", 0)
+        return cls(Rect(x, y, width, height))
 
     @property
     def center(self) -> Vector2:
@@ -205,31 +237,61 @@ class Hitbox:
         return Vector2(*self.rect.topleft)
     
     @property
+    def topright(self) -> Vector2:
+        return Vector2(*self.rect.topright)
+    
+    @property
+    def bottomleft(self) -> Vector2:
+        return Vector2(*self.rect.bottomleft)
+    
+    @property
+    def bottomright(self) -> Vector2:
+        return Vector2(*self.rect.bottomright)
+
+    @property
     def height(self) -> int:
         return self.rect.height
     
     @property
     def width(self) -> int:
         return self.rect.width
-
-
-@dataclass
-class Drag:
-    base: float = 8.0
-
-    def get_coef(self, entityState: State) -> float:
-        if entityState.flags & EntityState.ON_GROUND:
-            return self.base
-        elif entityState.flags & EntityState.WALL_SLIDING:
-            return 2.0*self.base
-        return self.base*0.5
     
     
 @dataclass
-class AI:
-    logic: AILogic = Idle()
+class AI(ComponentBase):
+    logic: ecsAI.AILogic = ecsAI.Idle()
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        logic_cls = getattr(ecsAI, data.get("name", "Idle"))
+        args = data.get("args", dict())
+        return cls(logic=logic_cls(**args))
 
 
 @dataclass
-class PlayerControlled:
+class PlayerControlled(ComponentBase):
     pass
+
+
+@dataclass
+class WallSticking(ComponentBase):
+    time_left: float = 0.0
+    duration: float = 0.2
+
+
+@dataclass
+class CollisionAction(ComponentBase):
+    action: Callable
+
+
+@dataclass
+class Camera:
+    rect: Rect
+
+    @property
+    def pos(self) -> Vector2:
+        return Vector2(self.rect.topleft)
+
+    @property
+    def size(self) -> tuple[int, int]:
+        return self.rect.size
