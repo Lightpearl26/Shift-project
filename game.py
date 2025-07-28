@@ -23,6 +23,8 @@ from pygame import Vector2, Rect
 from libs import ecsComponents as C
 from libs import level
 
+print("Hello World")
+
 # Create main function of the script
 def main() -> None:
     """
