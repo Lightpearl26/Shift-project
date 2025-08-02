@@ -14,7 +14,7 @@
       "value": 1.0
     },
     "Jump": {
-      "strength": 2.5e4,
+      "strength": 3e4,
       "duration": 0.15
     },
     "Hitbox": {

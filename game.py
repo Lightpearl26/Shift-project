@@ -36,7 +36,7 @@ def main() -> None:
         logger.info("Hello World !")
 
         pygame.init()
-        screen = pygame.display.set_mode((48*21, 48*17))
+        screen = pygame.display.set_mode((48*21, 48*17), pygame.FULLSCREEN | pygame.SCALED)
         clock = pygame.time.Clock()
 
         # Crée moteur

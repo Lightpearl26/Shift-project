@@ -287,7 +287,7 @@ def MapCollisionsSystem(engine, dt: float) -> None:
 
         if col.top:
             hitbox.rect.top = ((hitbox.top-1)//tile_size + 1)*tile_size
-            vel.value.y = -0.5*vel.value.y
+            vel.value.y = -0.75*vel.value.y
 
 
 def UpdateHitboxFromPositionSystem(engine, dt: float) -> None:
