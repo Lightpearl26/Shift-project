@@ -1,29 +1,33 @@
 {
     "Position": {
-      "x": 400,
-      "y": 500
+        "x": 0,
+        "y": 0
     },
     "Velocity": {
-      "x": 0,
-      "y": 0
+        "x": 0,
+        "y": 0
     },
     "Mass": {
-      "value": 5.0
+        "value": 60.0
     },
     "XDirection": {
-      "value": 1.0
+        "value": 1.0
     },
     "Jump": {
-      "strength": 3e4,
-      "duration": 0.15
+        "strength": 3e5,
+        "duration": 0.1
     },
     "Hitbox": {
-      "x": 0,
-      "y": 0,
-      "width": 48,
-      "height": 96
+        "x": 0,
+        "y": 0,
+        "width": 48,
+        "height": 96
     },
-    "WallSticking": {},
+    "Walk": {},
+    "WallSticking": {
+        "duration": 0.2
+    },
+    "NextPosition": {},
     "EntityCollisions": {"entities": []},
     "MapCollisions": {},
     "PlayerControlled": {},

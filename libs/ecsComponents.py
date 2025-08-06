@@ -26,6 +26,8 @@ from . import ecsAI
 # --------------------------
 JUMP_STRENGTH: float = 1e4
 JUMP_DURATION: float = 0.2
+WALK_ACC: float = 1000.0
+RUN_ACC: float = 2000.0
 
 
 # --------------------------
@@ -41,12 +43,18 @@ class ComponentBase:
 # | Enums                  |
 # --------------------------
 class EntityProperty(IntFlag):
+    """
+    Property of the Entity
+    """
     NONE = 0
     PHASABLE = auto()
     FLOATING = auto()
 
 
 class EntityState(IntFlag):
+    """
+    State of the Entity
+    """
     NONE = 0
     # positionnal state
     ON_GROUND = auto()
@@ -82,6 +90,9 @@ class EntityState(IntFlag):
 # --------------------------
 @dataclass
 class Position(ComponentBase):
+    """
+    Position of the Entity
+    """
     value: Vector2
 
     @classmethod
@@ -92,7 +103,24 @@ class Position(ComponentBase):
 
 
 @dataclass
+class NextPosition(ComponentBase):
+    """
+    Emulated position of entity after movement
+    """
+    value: Vector2
+    
+    @classmethod
+    def from_dict(cls, data: dict):
+        x = data.get("x", 0)
+        y = data.get("y",0)
+        return cls(Vector2(x, y))
+
+
+@dataclass
 class Velocity(ComponentBase):
+    """
+    Velocity of the Entity
+    """
     value: Vector2
 
     @classmethod
@@ -104,27 +132,54 @@ class Velocity(ComponentBase):
 
 @dataclass
 class Mass(ComponentBase):
+    """
+    Mass of the Entity
+    """
     value: float = 1.0
 
 
 @dataclass
 class Properties(ComponentBase):
+    """
+    Current properties of the Entity
+    """
     flags: EntityProperty = EntityProperty.NONE
 
 
 @dataclass
 class State(ComponentBase):
+    """
+    Current state of the Entity
+    """
     flags: EntityState = EntityState.NONE
+
+    def has_any_flags(self, *flags: int) -> bool:
+        """
+        Test if Entity has any of the given flags
+        """
+        return any((self.flags & flag for flag in flags))
+    
+    def has_all_flags(self, *flags: int) -> bool:
+        """
+        Test if Entity has all of the given flags
+        """
+        return all((self.flags & flag for flag in flags))
 
 
 @dataclass
 class XDirection(ComponentBase):
+    """
+    Direction where the Entity is facing (-1.0 for left and 1.0 for right)
+    """
     value: float = 1.0
 
 
 @dataclass
 class Jump(ComponentBase):
-    direction: float = 0.0 # angle in degree
+    """
+    Jump informations of the entity
+    """
+    direction: float = 0.0 #°
     strength: float = JUMP_STRENGTH
     duration: float = JUMP_DURATION
     time_left: float = 0.0
@@ -132,6 +187,9 @@ class Jump(ComponentBase):
 
 @dataclass
 class EntityCollisions(ComponentBase):
+    """
+    State of entity collision with other entities
+    """
     entities: list[tuple[int, tuple[bool, bool, bool, bool]]]
     left: bool = False
     right: bool = False
@@ -140,25 +198,43 @@ class EntityCollisions(ComponentBase):
 
     @property
     def topleft(self) -> bool:
+        """
+        State of collision in topleft
+        """
         return self.left and self.top
 
     @property
     def topright(self) -> bool:
+        """
+        State of collision in topright
+        """
         return self.right and self.top
 
     @property
     def bottomleft(self) -> bool:
+        """
+        State of collision in bottomleft
+        """
         return self.left and self.bottom
 
     @property
     def bottomright(self) -> bool:
+        """
+        State of collision in bottomright
+        """
         return self.right and self.bottom
 
     @property
     def colliding(self) -> bool:
+        """
+        State of entity collision
+        """
         return any((self.left, self.right, self.top, self.bottom))
 
     def reset(self) -> None:
+        """
+        Reset all collisions to False
+        """
         self.left = False
         self.right = False
         self.top = False
@@ -168,32 +244,53 @@ class EntityCollisions(ComponentBase):
 
 @dataclass
 class MapCollisions(ComponentBase):
+    """
+    State of Entity collision with the current Map
+    """
     left: bool = False
     right: bool = False
     top: bool = False
     bottom: bool = False
-    
+
     @property
     def topleft(self) -> bool:
+        """
+        State of topleft collision
+        """
         return self.left and self.top
-    
+
     @property
     def topright(self) -> bool:
+        """
+        State of topright collision
+        """
         return self.right and self.top
-    
+
     @property
     def bottomleft(self) -> bool:
+        """
+        State of bottomleft collision
+        """
         return self.left and self.bottom
-    
+
     @property
     def bottomright(self) -> bool:
+        """
+        State of bottomright collision
+        """
         return self.right and self.bottom
-    
+
     @property
     def colliding(self) -> bool:
+        """
+        State of collision
+        """
         return any((self.left, self.right, self.top, self.bottom))
-    
+
     def reset(self) -> None:
+        """
+        Reset all collisions to False
+        """
         self.left = False
         self.right = False
         self.top = False
@@ -202,6 +299,9 @@ class MapCollisions(ComponentBase):
 
 @dataclass
 class Hitbox(ComponentBase):
+    """
+    Hitbox rect of the Entity
+    """
     rect: Rect
 
     @classmethod
@@ -214,51 +314,87 @@ class Hitbox(ComponentBase):
 
     @property
     def center(self) -> Vector2:
+        """
+        Get center point of the Hitbox
+        """
         return Vector2(self.rect.centerx, self.rect.centery)
-    
+
     @property
     def top(self) -> int:
+        """
+        Get top coordinate of the hitbox
+        """
         return self.rect.top
-    
+
     @property
     def bottom(self) -> int:
+        """
+        Get bottom coordinate of the hitbox
+        """
         return self.rect.bottom
-    
+
     @property
     def left(self) -> int:
+        """
+        Get left coordinate of the hitbox
+        """
         return self.rect.left
-    
+
     @property
     def right(self) -> int:
+        """
+        Get right coordinate of the hitbox
+        """
         return self.rect.right
-    
+
     @property
     def topleft(self) -> Vector2:
+        """
+        Get topleft point of the hitbox
+        """
         return Vector2(self.rect.left, self.rect.top)
-    
+
     @property
     def topright(self) -> Vector2:
+        """
+        Get topright point of the hitbox
+        """
         return Vector2(self.rect.right, self.rect.top)
-    
+
     @property
     def bottomleft(self) -> Vector2:
+        """
+        Get bottomleft point of the hitbox
+        """
         return Vector2(self.rect.left, self.rect.bottom)
-    
+
     @property
     def bottomright(self) -> Vector2:
+        """
+        Get bottomright point of the hitbox
+        """
         return Vector2(self.rect.right, self.rect.bottom)
 
     @property
     def height(self) -> int:
+        """
+        Get height of the hitbox
+        """
         return self.rect.height
-    
+
     @property
     def width(self) -> int:
+        """
+        Get width of the hitbox
+        """
         return self.rect.width
-    
-    
+
+
 @dataclass
 class AI(ComponentBase):
+    """
+    AI of the Entity
+    """
     logic: ecsAI.AILogic = ecsAI.Idle()
 
     @classmethod
@@ -270,28 +406,54 @@ class AI(ComponentBase):
 
 @dataclass
 class PlayerControlled(ComponentBase):
-    pass
+    """
+    Entity is controlled by a player
+    """
 
 
 @dataclass
 class WallSticking(ComponentBase):
+    """
+    Wallsticking informations of the entity
+    """
     time_left: float = 0.0
-    duration: float = 0.05
+    duration: float = 0.1
 
 
 @dataclass
 class CollisionAction(ComponentBase):
+    """
+    Action called by Entity when on collision
+    """
     action: Callable
 
 
 @dataclass
 class Camera:
+    """
+    Camera of the Game
+    """
     rect: Rect
 
     @property
     def pos(self) -> Vector2:
+        """
+        Get position of the camera in Map
+        """
         return Vector2(self.rect.topleft)
 
     @property
     def size(self) -> tuple[int, int]:
+        """
+        Get size of the camera
+        """
         return self.rect.size
+
+
+@dataclass
+class Walk(ComponentBase):
+    """
+    walking and running informations of the Entity
+    """
+    walk_acc: float = WALK_ACC
+    run_acc: float = RUN_ACC

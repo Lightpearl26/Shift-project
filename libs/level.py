@@ -32,11 +32,13 @@ SYSTEMS: dict[str, Callable] = {
     for name, func in ecsS.__dict__.items()
     if callable(func) and not name.startswith("_")
 }
+logger.debug("Successfully load all systems")
 COMPONENTS: dict[str, type] = {
     name: obj
     for name, obj in ecsC.__dict__.items()
     if isinstance(obj, type) and issubclass(obj, ecsC.ComponentBase)
 }
+logger.debug("Successfully load all components")
 BLUEPRINTS_FOLDER = join("assets", "blueprints")
 
 
@@ -58,6 +60,7 @@ class Engine:
         self.camera = ecsC.Camera(Rect(0, 0, 0, 0))
         self.tilemap: tileMap.TileMap = tileMap.TileMap.load("empty")
         self.tilemap_renderer: tileMap.TileMapRenderer = tileMap.TileMapRenderer()
+        logger.info("Engine successfully setup")
 
     def load_tilemap(self, name: str) -> None:
         self.tilemap = tileMap.TileMap.load(name)
@@ -70,8 +73,9 @@ class Engine:
         self._entities.add(eid)
         self._next_eid += 1
         self._components[eid] = {}
+        logger.debug(f"Entity {eid} created")
         return eid
-    
+
     def new_entity(self, name: str, overrides: dict[str, dict] | None = None) -> int:
         eid = self._entity_loader.load(self, name)
         if eid == -1:
@@ -88,6 +92,7 @@ class Engine:
                     self.add_component(eid, component)
                 except Exception as e:
                     logger.error(f"Failed to override component '{comp_name}': {e}")
+        logger.debug(f"Entity [{name}] created with id {eid}")
         return eid
     
     def remove_entity(self, eid: int) -> None:
@@ -96,6 +101,7 @@ class Engine:
         """
         self._entities.discard(eid)
         self._components.pop(eid, None)
+        logger.debug(f"Successfully remove entity {eid}")
     
     def add_component(self, eid: int, component: Any) -> None:
         """
@@ -126,9 +132,9 @@ class Engine:
         """
         for system in systems:
             self._systems.append(SYSTEMS[system])
+            logger.debug(f"System [{system}] loaded")
 
     def update(self, dt: float) -> None:
-        #self.tilemap.update(dt)
         for system in self._systems:
             system(self, dt)
 

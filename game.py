@@ -17,14 +17,17 @@ copyrights: (c) Franck Lafiteau (code)
 """
 
 import pygame
-from pygame import Vector2, Rect
 
 # import logger
 from libs import logger, LoggerInterrupt
 from libs import ecsComponents as C
 from libs import level
 
-print("Hello World")
+def log_states(engine, eid):
+    states = engine.get_component(eid, C.State).flags
+    for state in C.EntityState.__dict__:
+        if isinstance(getattr(C.EntityState, state), int):
+            logger.info(f"State {state}: {bool(states & getattr(C.EntityState, state))}")
 
 # Create main function of the script
 def main() -> None:
@@ -46,50 +49,45 @@ def main() -> None:
 
         # Ajout des systèmes
         engine.add_system(
-            "TileAnimationSystem", # update Tilemap
-            "AISystem", # initiate AI-entity movement
-            "PlayerControlSystem", # initiate player movement
-            "DragSystem", # needs to be first to change velocity
+            # Tilemap systems
+            "TileAnimationSystem",
+            # Entity control systems
+            "AISystem",
+            "PlayerControlSystem",
+            # Velocity changing systems
+            "DragSystem",
             "GravitySystem",
             "JumpSystem",
             "MovementSystem",
-            "PhysicsSystem", # needs to be after velocity-changing systems
-            "UpdateHitboxFromPositionSystem", # update entity hitbox with position
-            "EntityCollisionsSystem", # collisions with entity update
-            "MapCollisionsSystem", # collisions with map update
-            "UpdatePositionFromHitboxSystem"
+            # Collisions with map systems
+            "MovePredictionSystem",
+            "MapCollisionSystem",
+            # Apply changes on hitbox and position
+            "UpdateHitboxAndPositionSystem",
+            # Entity collision system
+            "EntityCollisionsSystem",
+            # State change systems
+            "UpdateEntityStateSystem"
         )
 
         # Crée une entité joueur
-        player = engine.new_entity("player", overrides={"Position": {"x":72, "y": 200}})
-
-        enemi = engine.create_entity()
-        engine.add_component(enemi, C.Position(Vector2(400, 524)))
-        engine.add_component(enemi, C.Velocity(Vector2(0, 0)))
-        engine.add_component(enemi, C.Mass(10.0))
-        engine.add_component(enemi, C.XDirection(1.0))
-        engine.add_component(enemi, C.Jump(strength=C.JUMP_STRENGTH*5.0, duration=0.1))
-        engine.add_component(enemi, C.Hitbox(Rect(0, 0, 48, 48)))
-        engine.add_component(enemi, C.EntityCollisions([]))
-        engine.add_component(enemi, C.MapCollisions())
-        engine.add_component(enemi, C.AI())
-
-        state = C.State()
-        state.flags |= C.EntityState.ON_GROUND
-        engine.add_component(enemi, state)
-        engine.add_component(enemi, C.Properties())
-
+        player = engine.new_entity("player", overrides={"Position": {"x":72, "y": 300}})
 
         # Boucle principale
         running = True
 
         while running:
-            dt = clock.tick(60) / 1000  # durée en secondes
+            dt = clock.tick(60) / 1000  # durée en s
 
             if pygame.event.get(pygame.QUIT):
                 running = False
 
             engine.update(dt)
+
+            for event in pygame.event.get():
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_l:
+                        log_states(engine, player)
 
             # --- AFFICHAGE ---
             screen.fill((30, 30, 30))
@@ -97,11 +95,9 @@ def main() -> None:
             engine.tilemap_renderer.render(engine.tilemap, screen, engine.camera)
 
             hitbox = engine.get_component(player, C.Hitbox)
-            ehitbox = engine.get_component(enemi, C.Hitbox)
 
             # Joueur
             pygame.draw.rect(screen, (0, 255, 0), hitbox.rect)
-            pygame.draw.rect(screen, (255, 0, 0), ehitbox.rect)
 
             pygame.display.flip()
 

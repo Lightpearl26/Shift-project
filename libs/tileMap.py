@@ -18,6 +18,7 @@ from pygame import Surface, Rect, SRCALPHA
 from pygame.image import load as img_load
 
 # import modules of the package
+from . import logger
 
 
 # --------------------------
@@ -155,6 +156,8 @@ class TilesetData:
                 tile_data.hitbox = tile.get("hitbox")
                 tile_data.autotilebitmask = tile.get("type")
                 tiles.append(tile_data)
+                
+        logger.debug(f"Tileset [{name}] loaded")
         
         return cls(name, tiles, tsize)
 
@@ -181,6 +184,8 @@ class TileMap:
             bgs = data.get("bgs")
             tileset = TilesetData.load(data.get("tileset"))
             grid = data.get("tiles")
+        
+        logger.debug(f"Map [{name}] loaded")
 
         return cls(name, width, height, tileset, bgm, bgs, grid)
     
