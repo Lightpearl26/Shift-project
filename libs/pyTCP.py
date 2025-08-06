@@ -13,17 +13,17 @@ ________________________________________________________________________________
 
 # import external modules
 from threading import Thread, Lock
-from json import dumps, loads, JSONDecodeError
+from json import loads, JSONDecodeError
 from socket import socket as SocketType, AF_INET, SOCK_STREAM, timeout
 from queue import Queue
-from miniupnpc import UPnP
 from uuid import uuid4, UUID
+from miniupnpc import UPnP
 
 # get main logger of the game
 from . import logger
 
 # create module types
-address = tuple[str, int]
+Address = tuple[str, int]
 
 # create module constants
 LOCALHOST = ("localhost", 12345)
@@ -57,7 +57,7 @@ class ClientHandler(Thread):
             while self.running:
                 data: bytes = self.socket.recv(2048)
                 if not data:
-                    logger.warning(f"Client closed connection")
+                    logger.warning("Client closed connection")
                     self.running = False
                     break
                 try:
@@ -65,9 +65,9 @@ class ClientHandler(Thread):
                     inputs: dict[str, bool] = loads(data.decode())
                     self.queue.put((self.uuid, inputs))
                 except JSONDecodeError:
-                    logger.warning(f"Invalid data | failed to decode")
+                    logger.warning("Invalid data | failed to decode")
         except (ConnectionAbortedError, ConnectionResetError, OSError):
-            logger.error(f"Client lost connection")
+            logger.error("Client lost connection")
         except Exception as e:
             logger.fatal(f"Unexpected error occurs: {e}")
         finally:
@@ -77,9 +77,9 @@ class ClientHandler(Thread):
 class ServerSocket(SocketType):
     """
     """
-    def __init__(self, host: address=LOCALHOST) -> None:
+    def __init__(self, host: Address=LOCALHOST) -> None:
         SocketType.__init__(self, AF_INET, SOCK_STREAM)
-        self.host: address = host
+        self.host: Address = host
         self.clients: dict[UUID, ClientHandler] = {}
         self.queue: Queue = Queue()
         self.connection_handler: ConnectionHandler = ConnectionHandler(self)
@@ -120,7 +120,7 @@ class ServerSocket(SocketType):
             logger.debug("Server socket is now closed")
         except OSError as e:
             logger.error(f"Server socket seems to be already closed: {e}")
-        
+
         self.upnp.deleteportmapping(self.host[1], 'TCP')
 
     def send_to(self, uuid: UUID, msg: str) -> None:

@@ -168,7 +168,7 @@ class Logger:
         self.log_file.write(self.get_strflog(log)+"\n")
         self.log_file.flush()
         raise LoggerInterrupt
-    
+
     def get_logs(self, level: str) -> list[dict[str, str]]:
         """
         get all logs of level specified

@@ -16,10 +16,11 @@ copyrights: (c) Franck Lafiteau (code)
             (c) Guillaume Castaing (main idea, level design, graphics)
 """
 
-# import logger
-from libs import logger, LoggerInterrupt
 import pygame
 from pygame import Vector2, Rect
+
+# import logger
+from libs import logger, LoggerInterrupt
 from libs import ecsComponents as C
 from libs import level
 

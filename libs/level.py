@@ -11,21 +11,18 @@ ________________________________________________________________________________
 (c) Lafiteau Franck
 """
 
-# get main logger of the game
-from . import logger
-
 # import external module
 from typing import Callable, Any, Generator
-from pygame import Rect
-from json import load, dump
+from json import load
 from os import listdir
 from os.path import join, isfile, splitext
+from pygame import Rect
 
 # import modules from package
+from . import logger
 from . import tileMap
 from . import ecsComponents as ecsC
 from . import ecsSystems as ecsS
-from . import ecsAI
 
 # --------------------------
 # | Constants              |

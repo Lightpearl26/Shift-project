@@ -11,13 +11,10 @@ ________________________________________________________________________________
 (c) Lafiteau Franck
 """
 
-# get main logger
-from . import logger
-
 # import external modules
+from math import cos, sin, radians
 from pygame import Vector2
 from pygame.key import get_pressed
-from math import cos, sin, radians
 import pygame
 
 # import modules from package
@@ -28,7 +25,7 @@ from . import ecsComponents as C
 # | Constants              |
 # --------------------------
 GRAVITY: Vector2 = Vector2(0, 960)
-DRAG_BASE: float = 12.0
+DRAG_BASE: float = 4.0
 WALK_ACC: float = 1800.0
 RUN_ACC: float = 3000.0
 

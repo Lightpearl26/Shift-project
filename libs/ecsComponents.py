@@ -13,9 +13,9 @@ ________________________________________________________________________________
 
 # importing external modules
 from typing import Callable
-from pygame import Vector2, Rect
 from enum import IntFlag, auto
 from dataclasses import dataclass
+from pygame import Vector2, Rect
 
 # importing package modules
 from . import ecsAI
@@ -137,27 +137,27 @@ class EntityCollisions(ComponentBase):
     right: bool = False
     top: bool = False
     bottom: bool = False
-    
+
     @property
     def topleft(self) -> bool:
         return self.left and self.top
-    
+
     @property
     def topright(self) -> bool:
         return self.right and self.top
-    
+
     @property
     def bottomleft(self) -> bool:
         return self.left and self.bottom
-    
+
     @property
     def bottomright(self) -> bool:
         return self.right and self.bottom
-    
+
     @property
     def colliding(self) -> bool:
         return any((self.left, self.right, self.top, self.bottom))
-    
+
     def reset(self) -> None:
         self.left = False
         self.right = False
@@ -214,7 +214,7 @@ class Hitbox(ComponentBase):
 
     @property
     def center(self) -> Vector2:
-        return Vector2(*self.rect.center)
+        return Vector2(self.rect.centerx, self.rect.centery)
     
     @property
     def top(self) -> int:
@@ -234,19 +234,19 @@ class Hitbox(ComponentBase):
     
     @property
     def topleft(self) -> Vector2:
-        return Vector2(*self.rect.topleft)
+        return Vector2(self.rect.left, self.rect.top)
     
     @property
     def topright(self) -> Vector2:
-        return Vector2(*self.rect.topright)
+        return Vector2(self.rect.right, self.rect.top)
     
     @property
     def bottomleft(self) -> Vector2:
-        return Vector2(*self.rect.bottomleft)
+        return Vector2(self.rect.left, self.rect.bottom)
     
     @property
     def bottomright(self) -> Vector2:
-        return Vector2(*self.rect.bottomright)
+        return Vector2(self.rect.right, self.rect.bottom)
 
     @property
     def height(self) -> int:
@@ -276,7 +276,7 @@ class PlayerControlled(ComponentBase):
 @dataclass
 class WallSticking(ComponentBase):
     time_left: float = 0.0
-    duration: float = 0.2
+    duration: float = 0.05
 
 
 @dataclass

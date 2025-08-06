@@ -10,16 +10,12 @@ Contains all objects and systems for tilmap
 ____________________________________________________________________________________________________
 (c) Lafiteau Franck
 """
-
-# get game main logger
-from . import logger
-
 # import external modules
 from dataclasses import dataclass
-from pygame import Surface, Rect, Vector2, SRCALPHA
-from pygame.image import load as img_load
 from os.path import join
 from json import load
+from pygame import Surface, Rect, SRCALPHA
+from pygame.image import load as img_load
 
 # import modules of the package
 
