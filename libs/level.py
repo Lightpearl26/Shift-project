@@ -20,9 +20,9 @@ from pygame import Rect
 
 # import modules from package
 from . import logger
-from . import tileMap
-from . import ecsComponents as ecsC
-from . import ecsSystems as ecsS
+from . import tile_map
+from . import ecs_components as ecsC
+from . import ecs_systems as ecsS
 
 # --------------------------
 # | Constants              |
@@ -58,12 +58,12 @@ class Engine:
         self._next_eid: int = 0
         self._entity_loader: EntityLoader = EntityLoader(BLUEPRINTS_FOLDER)
         self.camera = ecsC.Camera(Rect(0, 0, 0, 0))
-        self.tilemap: tileMap.TileMap = tileMap.TileMap.load("empty")
-        self.tilemap_renderer: tileMap.TileMapRenderer = tileMap.TileMapRenderer()
+        self.tilemap: tile_map.TileMap = tile_map.TileMap.load("empty")
+        self.tilemap_renderer: tile_map.TileMapRenderer = tile_map.TileMapRenderer()
         logger.info("Engine successfully setup")
 
     def load_tilemap(self, name: str) -> None:
-        self.tilemap = tileMap.TileMap.load(name)
+        self.tilemap = tile_map.TileMap.load(name)
 
     def create_entity(self) -> int:
         """
@@ -94,7 +94,7 @@ class Engine:
                     logger.error(f"Failed to override component '{comp_name}': {e}")
         logger.debug(f"Entity [{name}] created with id {eid}")
         return eid
-    
+
     def remove_entity(self, eid: int) -> None:
         """
         Remove an entity from the engine
@@ -102,7 +102,7 @@ class Engine:
         self._entities.discard(eid)
         self._components.pop(eid, None)
         logger.debug(f"Successfully remove entity {eid}")
-    
+
     def add_component(self, eid: int, component: Any) -> None:
         """
         Add a new component to entity with id eid

@@ -20,14 +20,8 @@ import pygame
 
 # import logger
 from libs import logger, LoggerInterrupt
-from libs import ecsComponents as C
+from libs import ecs_components as C
 from libs import level
-
-def log_states(engine, eid):
-    states = engine.get_component(eid, C.State).flags
-    for state in C.EntityState.__dict__:
-        if isinstance(getattr(C.EntityState, state), int):
-            logger.info(f"State {state}: {bool(states & getattr(C.EntityState, state))}")
 
 # Create main function of the script
 def main() -> None:
@@ -37,7 +31,6 @@ def main() -> None:
     """
     try:
         # Here we execute code
-        logger.info("Hello World !")
 
         pygame.init()
         screen = pygame.display.set_mode((48*21, 48*17), pygame.FULLSCREEN | pygame.SCALED)
@@ -83,11 +76,6 @@ def main() -> None:
                 running = False
 
             engine.update(dt)
-
-            for event in pygame.event.get():
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_l:
-                        log_states(engine, player)
 
             # --- AFFICHAGE ---
             screen.fill((30, 30, 30))

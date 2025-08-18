@@ -101,7 +101,7 @@ class AutoTileRenderer:
         key = (id(tdata), tdata.animation_frame, tuple(neighbors))
         if key in self._cache:
             return self._cache[key]
-        
+
         surf = Surface((tdata.size, tdata.size), SRCALPHA)
 
         for i, corner in enumerate(("TL","TR", "BL", "BR")):
@@ -126,14 +126,14 @@ class TilesetData:
     tiles: list[TileData]
     tile_size: int
     renderer: AutoTileRenderer = AutoTileRenderer()
-    
+
     @classmethod
     def load(cls, name: str):
         tiles = []
         folder = join(TILESET_FOLDER, name)
         graphics_folder = join(folder, "graphics")
 
-        with open(join(folder, "data.json"), "r") as file:
+        with open(join(folder, "data.json"), "r", encoding="utf-8") as file:
             data = load(file)
 
             tsize = data.get("tile_size")
@@ -156,9 +156,9 @@ class TilesetData:
                 tile_data.hitbox = tile.get("hitbox")
                 tile_data.autotilebitmask = tile.get("type")
                 tiles.append(tile_data)
-                
+
         logger.debug(f"Tileset [{name}] loaded")
-        
+
         return cls(name, tiles, tsize)
 
 
@@ -174,21 +174,23 @@ class TileMap:
     bgm: str
     bgs: str
     grid: list[list[int]]
+    entities: list
 
     @classmethod
     def load(cls, name: str):
-        with open(join(TILEMAP_FOLDER, f"{name}.json"), "r") as file:
+        with open(join(TILEMAP_FOLDER, f"{name}.json"), "r", encoding="utf-8") as file:
             data = load(file)
             width, height = data.get("size")
             bgm = data.get("bgm")
             bgs = data.get("bgs")
             tileset = TilesetData.load(data.get("tileset"))
             grid = data.get("tiles")
-        
+            entities = data.get("entities")
+
         logger.debug(f"Map [{name}] loaded")
 
-        return cls(name, width, height, tileset, bgm, bgs, grid)
-    
+        return cls(name, width, height, tileset, bgm, bgs, grid, entities)
+
     def get_tile_neighbors(self, x: int, y: int) -> list[int]:
         offsets = [(-1, -1), (0, -1), (1, -1),
                    (-1,  0),          (1,  0),

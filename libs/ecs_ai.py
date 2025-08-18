@@ -13,7 +13,7 @@ class AILogic:
 
 class Idle(AILogic):
     def __call__(self, eid: int, engine: Any, dt: float) -> None:
-        from . import ecsComponents as C
+        from . import ecs_components as C
         # Do nothing -> it's idle
         state = engine.get_component(eid, C.State)
         jump = engine.get_component(eid, C.Jump)

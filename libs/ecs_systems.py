@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+#-*- coding: utf-8 -*-
 
 """
 SHIFT PROJECT libs
@@ -18,7 +18,7 @@ from pygame.key import get_pressed
 import pygame
 
 # import modules from package
-from . import ecsComponents as C
+from . import ecs_components as C
 
 # --------------------------
 # | Constants              |

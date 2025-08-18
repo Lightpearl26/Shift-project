@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pygame import Vector2, Rect
 
 # importing package modules
-from . import ecsAI
+from . import ecs_ai
 
 
 # --------------------------
@@ -395,11 +395,11 @@ class AI(ComponentBase):
     """
     AI of the Entity
     """
-    logic: ecsAI.AILogic = ecsAI.Idle()
+    logic: ecs_ai.AILogic = ecs_ai.Idle()
 
     @classmethod
     def from_dict(cls, data: dict):
-        logic_cls = getattr(ecsAI, data.get("name", "Idle"))
+        logic_cls = getattr(ecs_ai, data.get("name", "Idle"))
         args = data.get("args", dict())
         return cls(logic=logic_cls(**args))
 

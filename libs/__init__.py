@@ -2,9 +2,10 @@ from .logger import Logger, LoggerInterrupt
 
 logger = Logger()
 
-from . import pyTCP
-from . import tileMap
-from . import ecsAI
-from . import ecsComponents
-from . import ecsSystems
+from . import py_tcp
+from . import tile_map
+from . import ecs_ai
+from . import ecs_components
+from . import ecs_systems
 from . import level
+from . import pygame_ui
