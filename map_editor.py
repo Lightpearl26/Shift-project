@@ -18,12 +18,14 @@ copyrights: (c) Franck Lafiteau
 from dataclasses import dataclass
 from os import listdir
 from os.path import join, basename
+from json import dumps
 from queue import Queue
 from tkinter.filedialog import askopenfilename
 import math
 import pygame
 
 # import ui modules
+from libs import LoggerInterrupt
 from libs import logger
 from libs.level import EntityLoader
 from libs.tile_map import TileMap, TileMapRenderer, AutoTileRenderer, TilesetData
@@ -86,48 +88,54 @@ class MapData:
         ]
         return cls(tile_map, entities)
 
+    def _format_tiles(self) -> str:
+        """
+        Format the grid to a lisible text
+        Example :
+        [
+            [ 0, 1, 2],
+            [ 3, 4, 5]
+        ]
+        """
+        rows = [
+            "[" + ", ".join(f"{t:2d}" for t in line) + "]"
+            for line in self.tile_map.grid
+        ]
+        return "[\n\t\t" + ",\n\t\t".join(rows) + "\n\t]"
+
+    def _format_entities(self) -> str:
+        """
+        Format entities to json list
+        """
+        entities_str = [
+            dumps(entity.to_dict(), ensure_ascii=False)
+            for entity in self.entities
+        ]
+        if not entities_str:
+            return "[]"
+        return "[\n\t\t" + ",\n\t\t".join(entities_str) + "\n\t]"
+
     def save(self) -> None:
         """
-        Save map data in filename
+        Sauvegarde la map dans un fichier lisible.
         """
         filename = join("assets", "Tilemaps", f"{self.tile_map.name}.json")
+
+        content = (
+            "{\n"
+            f'\t"size": [{self.tile_map.width}, {self.tile_map.height}],\n'
+            f'\t"bgm": "{self.tile_map.bgm}",\n'
+            f'\t"bgs": "{self.tile_map.bgs}",\n'
+            f'\t"tileset": "{self.tile_map.tileset.name}",\n'
+            f'\t"tiles": {self._format_tiles()},\n'
+            f'\t"entities": {self._format_entities()}\n'
+            "}\n"
+        )
+
         with open(filename, "w", encoding="utf-8") as file:
-            data = {
-                "size": [self.tile_map.width, self.tile_map.height],
-                "bgm": self.tile_map.bgm,
-                "bgs": self.tile_map.bgs,
-                "tileset": self.tile_map.tileset.name,
-                "tiles": self.tile_map.grid,
-                "entities": [entity.to_dict() for entity in self.entities]
-            }
-            file.write("{\n")
-            file.write(f"\t\"size\": {data["size"]},\n")
-            file.write(f"\t\"bgm\": \"{data["bgm"]}\",\n")
-            file.write(f"\t\"bgs\": \"{data["bgs"]}\",\n")
-            file.write(f"\t\"tileset\": \"{data["tileset"]}\",\n")
-            file.write("\t\"tiles\": ")
-            formated = (
-                "[\n\t\t"
-                + ",\n\t\t".join(
-                    "[" + ", ".join(f"{t:2d}" for t in line) + "]"
-                    for line in data["tiles"]
-                )
-                + "\n\t],\n"
-            )
-            file.write(formated)
-            file.write("\t\"entities\": [")
-            if data["entities"]:
-                file.write("\n")
-                for i, entity in enumerate(data["entities"]):
-                    if i == len(data["entities"])-1:
-                        file.write(f"\t\t{entity}\n")
-                    else:
-                        file.write(f"\t\t{entity},\n")
-                file.write("\t]\n")
-            else:
-                file.write("]\n")
-            file.write("}")
-        logger.info(f"Map [{self.tile_map.name}] succesfully saved")
+            file.write(content)
+            
+        logger.info(f"Map [{self.tile_map.name}] successfully saved")
 
 
 class MapCanvas(Frame):
@@ -138,7 +146,7 @@ class MapCanvas(Frame):
         Frame.__init__(self, parent, rect, bg_color=(57, 61, 71))
         self.map_data = map_data
         self.map_renderer: TileMapRenderer = TileMapRenderer()
-        self.map_camera: Camera = Camera(rect=pygame.Rect(0, 0, 0, 0))
+        self.map_camera: Camera = Camera(pos=pygame.Vector2(rect.width/2, rect.height/2), size=rect.size)
         self.painting = False
         self.erasing = False
         self.reload_surface()
@@ -323,7 +331,6 @@ class TilePicker(Frame):
         pygame.draw.rect(surface, (0, 0, 0), self.rect.inflate(2, 2), width=2)
 
 
-
 class MapEditor(Frame):
     """
     Instance of the map editor
@@ -405,6 +412,7 @@ class MapEditor(Frame):
         self.map_canvas.map_data = self.map_data
         self.map_canvas.reload_surface()
         self.tile_picker.map_data = self.map_data
+        self.tile_picker.reload_surface()
         self.save_button.callback = self.map_data.save
 
     def new_map(self) -> None:
@@ -431,15 +439,21 @@ class MapEditor(Frame):
 
         map_infos_popup.run()
 
-        width = int(width_entry.text)
-        height = int(height_entry.text)
-        tileset = TilesetData.load(tileset_list.selected_text)
-        tile_map = TileMap(name_entry.text, width, height, tileset, "", "", [[-1 for _ in range(width)]for _ in range(height)], [])
-        self.map_data = MapData(tile_map, [])
-        self.map_canvas.map_data = self.map_data
-        self.map_canvas.reload_surface()
-        self.tile_picker.map_data = self.map_data
-        self.save_button.callback = self.map_data.save
+        try:
+            width = int(width_entry.text)
+            height = int(height_entry.text)
+            tileset = TilesetData.load(tileset_list.selected_text)
+            tile_map = TileMap(name_entry.text, width, height, tileset, "", "", [[-1 for _ in range(width)]for _ in range(height)], [], [])
+            self.map_data = MapData(tile_map, [])
+            self.map_canvas.map_data = self.map_data
+            self.map_canvas.reload_surface()
+            self.tile_picker.map_data = self.map_data
+            self.tile_picker.reload_surface()
+            self.save_button.callback = self.map_data.save
+        except ValueError:
+            logger.warning("Tried to create new map but some informations were missing")
+        except Exception as e:
+            logger.fatal(f"Got fatal error while trying to create a new map: {e}")
 
     def update(self, dt: float) -> None:
         """
@@ -482,4 +496,8 @@ def main() -> None:
 
 # launching script
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except LoggerInterrupt:
+        logger.debug("Exiting program")
+        raise

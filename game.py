@@ -33,12 +33,13 @@ def main() -> None:
         # Here we execute code
 
         pygame.init()
-        screen = pygame.display.set_mode((48*21, 48*17), pygame.FULLSCREEN | pygame.SCALED)
+        screen = pygame.display.set_mode((1920, 1080), pygame.FULLSCREEN | pygame.SCALED)
         clock = pygame.time.Clock()
 
         # Crée moteur
         engine = level.Engine()
-        engine.camera.rect.size = (48*21, 48*17)
+        engine.load_tilemap("Caves")
+        engine.camera.size = (1920, 1080)
 
         # Ajout des systèmes
         engine.add_system(
@@ -60,7 +61,9 @@ def main() -> None:
             # Entity collision system
             "EntityCollisionsSystem",
             # State change systems
-            "UpdateEntityStateSystem"
+            "UpdateEntityStateSystem",
+            # update Camera
+            "CameraSystem"
         )
 
         # Crée une entité joueur
@@ -82,10 +85,24 @@ def main() -> None:
 
             engine.tilemap_renderer.render(engine.tilemap, screen, engine.camera)
 
+            for eid in engine.get_entities_with(C.Hitbox):
+                hitbox = engine.get_component(eid, C.Hitbox)
+                adapted_hitbox = pygame.Rect(engine.camera.transform_coords(hitbox.topleft), hitbox.size)
+                pygame.draw.rect(screen, (0, 255, 255), adapted_hitbox)
+
             hitbox = engine.get_component(player, C.Hitbox)
+            adapted_hitbox = pygame.Rect(engine.camera.transform_coords(hitbox.topleft), hitbox.size)
 
             # Joueur
-            pygame.draw.rect(screen, (0, 255, 0), hitbox.rect)
+            dirx = engine.get_component(player, C.XDirection)
+            jumping = engine.get_component(player, C.State).flags & C.EntityState.JUMPING
+            if jumping:
+                pygame.draw.rect(screen, (0, 0, 255), adapted_hitbox)
+            else:
+                if dirx.value == 1.0:
+                    pygame.draw.rect(screen, (0, 255, 0), adapted_hitbox)
+                else:
+                    pygame.draw.rect(screen, (255, 0, 0), adapted_hitbox)
 
             pygame.display.flip()
 

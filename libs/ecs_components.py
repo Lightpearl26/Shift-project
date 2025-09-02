@@ -389,6 +389,13 @@ class Hitbox(ComponentBase):
         """
         return self.rect.width
 
+    @property
+    def size(self) -> tuple[int, int]:
+        """
+        Get size of the hitbox
+        """
+        return (self.width, self.height)
+
 
 @dataclass
 class AI(ComponentBase):
@@ -433,21 +440,38 @@ class Camera:
     """
     Camera of the Game
     """
-    rect: Rect
+    pos: Vector2
+    size: tuple[int, int]
 
     @property
-    def pos(self) -> Vector2:
+    def rect(self) -> Rect:
         """
-        Get position of the camera in Map
+        Returns the rect of the camera
         """
-        return Vector2(self.rect.topleft)
+        w, h = self.size
+        topleft = self.pos - Vector2(w/2, h/2)
+        return Rect(int(topleft.x), int(topleft.y), w, h)
 
-    @property
-    def size(self) -> tuple[int, int]:
+    def transform_coords(self, coords: Vector2) -> Vector2:
         """
-        Get size of the camera
+        Transforms coords to match camera
         """
-        return self.rect.size
+        return coords - Vector2(self.rect.left, self.rect.top)
+
+
+@dataclass
+class CameraFollow(ComponentBase):
+    """
+    Tags an entity to be followed by camera
+    """
+    deadzone: Rect
+    damping: float = 8.0
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        w, h = data.get("deadzone").get("width"), data.get("deadzone").get("height")
+        damping = data.get("damping", 8.0)
+        return cls(Rect(0, 0, w, h), damping)
 
 
 @dataclass

@@ -16,7 +16,7 @@ from typing import Callable, Any, Generator
 from json import load
 from os import listdir
 from os.path import join, isfile, splitext
-from pygame import Rect
+from pygame import Rect, Vector2
 
 # import modules from package
 from . import logger
@@ -57,13 +57,16 @@ class Engine:
         self._systems: list[Callable] = []
         self._next_eid: int = 0
         self._entity_loader: EntityLoader = EntityLoader(BLUEPRINTS_FOLDER)
-        self.camera = ecsC.Camera(Rect(0, 0, 0, 0))
+        self.camera = ecsC.Camera(Vector2(0, 0), (0, 0))
         self.tilemap: tile_map.TileMap = tile_map.TileMap.load("empty")
         self.tilemap_renderer: tile_map.TileMapRenderer = tile_map.TileMapRenderer()
         logger.info("Engine successfully setup")
 
     def load_tilemap(self, name: str) -> None:
         self.tilemap = tile_map.TileMap.load(name)
+        for entity in self.tilemap.entities:
+            ename, overrides = entity["name"], entity["overrides"]
+            self.new_entity(ename, overrides)
 
     def create_entity(self) -> int:
         """

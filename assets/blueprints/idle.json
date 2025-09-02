@@ -14,8 +14,8 @@
         "value": 1.0
     },
     "Jump": {
-        "strength": 2.5e5,
-        "duration": 0.2
+        "strength": 4.5e5,
+        "duration": 0.1
     },
     "Hitbox": {
         "x": 0,
@@ -30,10 +30,7 @@
     "NextPosition": {},
     "EntityCollisions": {"entities": []},
     "MapCollisions": {},
-    "PlayerControlled": {},
+    "AI": {},
     "State": {},
-    "Properties": {},
-    "CameraFollow": {
-        "deadzone": {"width": 144, "height": 96}
-    }
+    "Properties": {}
 }

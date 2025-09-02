@@ -18,6 +18,7 @@ from pygame.key import get_pressed
 import pygame
 
 # import modules from package
+from . import logger
 from . import ecs_components as C
 
 # --------------------------
@@ -276,12 +277,6 @@ def MapCollisionSystem(engine, dt: float) -> None:
 
         next_pos.value = Vector2(*test_rect.center)
 
-        if col.bottom:
-            state.flags |= C.EntityState.ON_GROUND
-
-        else:
-            state.flags &= ~C.EntityState.ON_GROUND
-
         if col.right and xdir == 1.0 and not col.bottom:
             if engine.has_component(eid, C.WallSticking):
                 wstick = engine.get_component(eid, C.WallSticking)
@@ -315,6 +310,12 @@ def MapCollisionSystem(engine, dt: float) -> None:
         else:
             state.flags &= ~(C.EntityState.WALL_STICKING | C.EntityState.WALL_SLIDING)
 
+        if col.bottom:
+            state.flags |= C.EntityState.ON_GROUND
+
+        else:
+            state.flags &= ~C.EntityState.ON_GROUND
+
 
 def UpdateHitboxAndPositionSystem(engine, dt: float) -> None:
     for eid in engine.get_entities_with(C.Position, C.Hitbox, C.NextPosition):
@@ -347,3 +348,47 @@ def UpdateEntityStateSystem(engine, dt: float) -> None:
             state.flags &= ~C.EntityState.WALL_SLIDING
         if state.has_all_flags(C.EntityState.WALL_STICKING, C.EntityState.ON_GROUND):
             state.flags &= ~C.EntityState.WALL_STICKING
+
+
+def CameraSystem(engine, dt: float) -> None:
+    follow_entities = list(engine.get_entities_with(C.CameraFollow, C.Position))
+    if not follow_entities:
+        return
+
+    eid = follow_entities[0]
+    pos = engine.get_component(eid, C.Position).value
+    follow = engine.get_component(eid, C.CameraFollow)
+
+    cam = engine.camera
+    follow.deadzone.center = cam.pos
+    cam_w, cam_h = cam.size
+    map_w = engine.tilemap.width * engine.tilemap.tileset.tile_size
+    map_h = engine.tilemap.height * engine.tilemap.tileset.tile_size
+
+    new_cam_x = cam.pos.x
+    new_cam_y = cam.pos.y
+
+    if pos.x < follow.deadzone.left:
+        new_cam_x -= follow.deadzone.left - pos.x
+    elif pos.x > follow.deadzone.right:
+        new_cam_x += pos.x - follow.deadzone.right
+
+    if pos.y < follow.deadzone.top:
+        new_cam_y -= follow.deadzone.top - pos.y
+    elif pos.y > follow.deadzone.bottom:
+        new_cam_y += pos.y - follow.deadzone.bottom
+
+    cam_x = cam.pos.x + (new_cam_x - cam.pos.x) * min(dt*follow.damping, 1.0)
+    cam_y = cam.pos.y + (new_cam_y - cam.pos.y) * min(dt*follow.damping, 1.0)
+
+    if map_w > cam_w:
+        cam_x = max(cam_w / 2, min(cam_x, map_w - cam_w / 2))
+    else:
+        cam_x = map_w / 2
+
+    if map_h > cam_h:
+        cam_y = max(cam_h / 2, min(cam_y, map_h - cam_h / 2))
+    else:
+        cam_y = map_h / 2
+
+    cam.pos = Vector2(cam_x, cam_y)

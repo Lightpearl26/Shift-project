@@ -11,10 +11,11 @@ ________________________________________________________________________________
 (c) Lafiteau Franck
 """
 # import external modules
+from typing import Optional
 from dataclasses import dataclass
 from os.path import join
 from json import load
-from pygame import Surface, Rect, SRCALPHA
+from pygame import Surface, Rect, Vector2, SRCALPHA
 from pygame.image import load as img_load
 
 # import modules of the package
@@ -162,6 +163,43 @@ class TilesetData:
         return cls(name, tiles, tsize)
 
 
+@dataclass
+class Parallax:
+    data: dict
+
+    def __init__(self, data) -> None:
+        self.data = data
+        self._cache: Optional[Surface] | Optional[TileMap] = None
+
+    def render(self) -> Surface:
+        """
+        Renders the parallax
+        """
+        if self.data["type"] == "img":
+            # Fix image
+            if not self._cache:
+                self._cache = img_load(self.data["path"]).convert_alpha()
+            return self._cache
+        else:
+            # Tilemap
+            if not self._cache:
+                self._cache = TileMap.load(self.data["name"])
+            tm = self._cache
+            tm_w = tm.width*tm.tileset.tile_size
+            tm_h = tm.height*tm.tileset.tile_size
+            surface = Surface((tm_w, tm_h), SRCALPHA)
+            for y, row in enumerate(tm.grid):
+                for x, tid in enumerate(row):
+                    if tid == -1:
+                        continue
+                    tdata = tm.tileset.tiles[tid]
+                    neighboorhood = tm.get_tile_neighbors(x, y)
+                    tsurf = tm.tileset.renderer.render(tdata, neighboorhood)
+                    surface.blit(tsurf, (x*tm.tileset.tile_size, y*tm.tileset.tile_size))
+
+            return surface
+
+
 # --------------------------
 # | TileMap                |
 # --------------------------
@@ -175,6 +213,7 @@ class TileMap:
     bgs: str
     grid: list[list[int]]
     entities: list
+    parallax: list[Parallax]
 
     @classmethod
     def load(cls, name: str):
@@ -185,11 +224,12 @@ class TileMap:
             bgs = data.get("bgs")
             tileset = TilesetData.load(data.get("tileset"))
             grid = data.get("tiles")
-            entities = data.get("entities")
+            entities = data.get("entities", [])
+            parallax = [Parallax(d) for d in data.get("parallax", [])]
 
         logger.debug(f"Map [{name}] loaded")
 
-        return cls(name, width, height, tileset, bgm, bgs, grid, entities)
+        return cls(name, width, height, tileset, bgm, bgs, grid, entities, parallax)
 
     def get_tile_neighbors(self, x: int, y: int) -> list[int]:
         offsets = [(-1, -1), (0, -1), (1, -1),
@@ -209,15 +249,44 @@ class TileMap:
 # | TileMapRenderer        |
 # --------------------------
 class TileMapRenderer:
+    def render_parallax(self, tilemap: TileMap, parallax: Parallax, surface: Surface, camera) -> None:
+        cam_rect = camera.rect
+        map_w = tilemap.width*tilemap.tileset.tile_size
+        map_h = tilemap.height*tilemap.tileset.tile_size
+        p_surf = parallax.render()
+        p_w, p_h = p_surf.get_size()
+
+        offset = Vector2(0, 0)
+        
+        if map_w > cam_rect.width:
+            offset.x = -(p_w-cam_rect.width) * (cam_rect.left / (map_w - cam_rect.width))
+        else:
+            # centrer le parallax si map plus petite que la caméra
+            offset.x = (cam_rect.width-p_w)/2
+
+        if map_h > cam_rect.height:
+            offset.y = -(p_h-cam_rect.height) * (cam_rect.top / (map_h - cam_rect.height))
+        else:
+            offset.y = (cam_rect.height-p_h)/2
+
+        surface.blit(p_surf, (int(offset.x), int(offset.y)))
+
     def render(self, tilemap: TileMap, surface: Surface, camera) -> None:
+        # Render parallaxes
+        for parallax in tilemap.parallax:
+            self.render_parallax(tilemap, parallax, surface, camera)
+
+        # Render main tilemap
+        cam_rect = camera.rect
         for y, row in enumerate(tilemap.grid):
             for x, tid in enumerate(row):
-                if tid != -1:
-                    tdata = tilemap.tileset.tiles[tid]
-                    posx = x*tdata.size-camera.pos.x
-                    if -tdata.size <= posx <= surface.get_width()-tdata.size:
-                        posy = y*tdata.size-camera.pos.y
-                        if -tdata.size <= posy <= surface.get_height()-tdata.size:
-                            neighbors = tilemap.get_tile_neighbors(x, y)
-                            tile_surf = tilemap.tileset.renderer.render(tdata, neighbors)
-                            surface.blit(tile_surf, (posx, posy))
+                if tid == -1:
+                    continue
+                tdata = tilemap.tileset.tiles[tid]
+                posx = x * tdata.size - cam_rect.left
+                posy = y * tdata.size - cam_rect.top
+                tile_rect = Rect(posx, posy, tdata.size, tdata.size)
+                if tile_rect.colliderect(surface.get_rect()):
+                    neighbors = tilemap.get_tile_neighbors(x, y)
+                    tile_surf = tilemap.tileset.renderer.render(tdata, neighbors)
+                    surface.blit(tile_surf, (posx, posy))

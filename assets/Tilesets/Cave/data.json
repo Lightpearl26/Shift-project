@@ -1,0 +1,7 @@
+{
+    "tile_size": 48,
+    "files": ["cave bricks 2.png"],
+    "tiles": [
+        {"file":"cave bricks 2.png", "type":"field", "hitbox":1, "frames":[[0, 0]]}
+    ]
+}
