@@ -35,7 +35,7 @@ from libs.pygame_ui import Frame, UIWidget, SelectorButton, Button, Selector, Po
 
 # create constants of the script:
 SCREEN_WIDTH = 1400
-SCREEN_HEIGHT = 900
+SCREEN_HEIGHT = 800
 SCREEN_SIZE = SCREEN_WIDTH, SCREEN_HEIGHT
 ICONS = {
     "brush": pygame.image.load("assets//Editor//brush.png"),
@@ -146,7 +146,7 @@ class MapCanvas(Frame):
         Frame.__init__(self, parent, rect, bg_color=(57, 61, 71))
         self.map_data = map_data
         self.map_renderer: TileMapRenderer = TileMapRenderer()
-        self.map_camera: Camera = Camera(pos=pygame.Vector2(rect.width/2, rect.height/2), size=rect.size)
+        self.map_camera: Camera = Camera(pos=pygame.Vector2(960, 540), size=(1920, 1080))
         self.painting = False
         self.erasing = False
         self.reload_surface()
@@ -173,6 +173,24 @@ class MapCanvas(Frame):
         """
         appli brush if painting
         """
+        if self.size[0] > self.map_camera.size[0]:
+            if self.size[0] > self.rect.width:
+                max_scroll = self.size[0]-self.rect.width
+                scroll_ratio = self.scroll.x/max_scroll
+                self.map_camera.pos.x = self.map_camera.size[0]/2 + scroll_ratio*(self.size[0]-self.map_camera.size[0])
+            else:
+                self.map_camera.pos.x = self.map_camera.size[0]/2
+        else:
+            self.map_camera.pos.x = self.size[0]/2
+        if self.size[1] > self.map_camera.size[1]:
+            if self.size[1] > self.rect.height:
+                max_scroll = self.size[1]-self.rect.height
+                scroll_ratio = self.scroll.y/max_scroll
+                self.map_camera.pos.y = self.map_camera.size[1]/2 + scroll_ratio*(self.size[1]-self.map_camera.size[1])
+            else:
+                self.map_camera.pos.y = self.map_camera.size[1]/2
+        else:
+            self.map_camera.pos.y = self.size[1]/2
         pos = pygame.mouse.get_pos()
         tile_size = self.map_data.tile_map.tileset.tile_size
         if self.hover:
@@ -236,8 +254,12 @@ class MapCanvas(Frame):
         map_rect = pygame.Rect(0, 0, map_width, map_height)
         self.surface.fill((255, 255, 255), map_rect)
         self.map_renderer.render(self.map_data.tile_map, self.surface, self.map_camera)
-
-        surface_rect = pygame.Rect(self.scroll, self.rect.size)
+        pos = self.scroll-pygame.Vector2(self.map_camera.rect.topleft)
+        if not(self.size[0] > self.rect.width and self.size[0] > self.map_camera.size[0]):
+            pos.x = 0
+        if not(self.size[1] > self.rect.height and self.size[1] > self.map_camera.size[1]):
+            pos.y = 0
+        surface_rect = pygame.Rect(pos, self.rect.size)
         surface.blit(self.surface.subsurface(surface_rect), self.rect)
 
         self.draw_scrollbar(surface)

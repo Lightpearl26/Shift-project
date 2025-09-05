@@ -35,6 +35,7 @@ def main() -> None:
         pygame.init()
         screen = pygame.display.set_mode((1920, 1080), pygame.FULLSCREEN | pygame.SCALED)
         clock = pygame.time.Clock()
+        debug_font = pygame.font.SysFont(None, 48)
 
         # Crée moteur
         engine = level.Engine()
@@ -67,7 +68,10 @@ def main() -> None:
         )
 
         # Crée une entité joueur
-        player = engine.new_entity("player", overrides={"Position": {"x":72, "y": 300}})
+        player = engine.new_entity("player", overrides={"Position": {"x":72, "y": 144}})
+        player_hitbox = engine.get_component(player, C.Hitbox)
+        player_pos = engine.get_component(player, C.Position)
+        player_hitbox.rect.center = player_pos.value
 
         # Boucle principale
         running = True
@@ -103,6 +107,10 @@ def main() -> None:
                     pygame.draw.rect(screen, (0, 255, 0), adapted_hitbox)
                 else:
                     pygame.draw.rect(screen, (255, 0, 0), adapted_hitbox)
+                    
+            if pygame.key.get_pressed()[pygame.K_F3]:
+                fps = debug_font.render(f"FPS: {1/dt}", True, (255, 255, 255))
+                screen.blit(fps, fps.get_rect(topleft=(10, 10)))
 
             pygame.display.flip()
 

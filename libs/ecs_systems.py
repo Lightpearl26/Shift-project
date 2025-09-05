@@ -51,6 +51,7 @@ def PlayerControlSystem(engine, dt: float) -> None:
 
     for eid in engine.get_entities_with(C.PlayerControlled):
         direction = engine.get_component(eid, C.XDirection)
+        vel = engine.get_component(eid, C.Velocity)
         state = engine.get_component(eid, C.State)
         jump = engine.get_component(eid, C.Jump)
 
@@ -79,22 +80,28 @@ def PlayerControlSystem(engine, dt: float) -> None:
                 pygame.event.post(event)
 
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            direction.value = 1.0
-            if keys[pygame.K_LCTRL] or keys[pygame.K_a]:
-                state.flags &= ~C.EntityState.WALKING
-                state.flags |= C.EntityState.RUNNING
-            else:
-                state.flags |= C.EntityState.WALKING
-                state.flags &= ~C.EntityState.RUNNING
+            if state.flags & C.EntityState.CAN_MOVE:
+                direction.value = 1.0
+                if keys[pygame.K_LCTRL] or keys[pygame.K_a]:
+                    state.flags &= ~C.EntityState.WALKING
+                    state.flags |= C.EntityState.RUNNING
+                    vel.value.x = C.RUN_ACC
+                else:
+                    state.flags |= C.EntityState.WALKING
+                    state.flags &= ~C.EntityState.RUNNING
+                    vel.value.x = C.WALK_ACC
 
         elif keys[pygame.K_LEFT] or keys[pygame.K_q]:
-            direction.value = -1.0
-            if keys[pygame.K_LCTRL] or keys[pygame.K_a]:
-                state.flags &= ~C.EntityState.WALKING
-                state.flags |= C.EntityState.RUNNING
-            else:
-                state.flags |= C.EntityState.WALKING
-                state.flags &= ~C.EntityState.RUNNING
+            if state.flags & C.EntityState.CAN_MOVE:
+                direction.value = -1.0
+                if keys[pygame.K_LCTRL] or keys[pygame.K_a]:
+                    state.flags &= ~C.EntityState.WALKING
+                    state.flags |= C.EntityState.RUNNING
+                    vel.value.x = -C.RUN_ACC
+                else:
+                    state.flags |= C.EntityState.WALKING
+                    state.flags &= ~C.EntityState.RUNNING
+                    vel.value.x = -C.WALK_ACC
 
         else:
             state.flags &= ~C.EntityState.WALKING
@@ -119,7 +126,7 @@ def DragSystem(engine, dt: float) -> None:
         elif state.flags & C.EntityState.WALL_SLIDING:
             coef = 20.0
         else:
-            coef = 1.0
+            coef = 5.0
 
         vel.value *= 1 - coef * DRAG_BASE * dt / mass
 
@@ -170,12 +177,12 @@ def MovementSystem(engine, dt: float) -> None:
         else:
             coef = 0.3
         if state.flags & C.EntityState.CAN_MOVE:
-            acc = 0.0
+            speed = 0.0
             if state.flags & C.EntityState.WALKING:
-                acc = engine.get_component(eid, C.Walk).walk_acc
+                speed = engine.get_component(eid, C.Walk).walk_speed
             elif state.flags & C.EntityState.RUNNING:
-                acc = engine.get_component(eid, C.Walk).run_acc
-            vel.value.x += xdir*coef*acc*dt
+                speed = engine.get_component(eid, C.Walk).run_speed
+            vel.value.x += xdir*coef*speed*dt
 
 
 def MovePredictionSystem(engine, dt: float) -> None:
@@ -188,14 +195,7 @@ def MovePredictionSystem(engine, dt: float) -> None:
 
 
 def MapCollisionSystem(engine, dt: float) -> None:
-    tile_size = engine.tilemap.tileset.tile_size
-
-    for eid in engine.get_entities_with(C.Hitbox,
-                                        C.NextPosition,
-                                        C.Velocity,
-                                        C.MapCollisions,
-                                        C.State,
-                                        C.XDirection):
+    for eid in engine.get_entities_with(C.Hitbox, C.MapCollisions, C.XDirection):
         hitbox = engine.get_component(eid, C.Hitbox)
         next_pos = engine.get_component(eid, C.NextPosition)
         vel = engine.get_component(eid, C.Velocity)
@@ -205,116 +205,67 @@ def MapCollisionSystem(engine, dt: float) -> None:
 
         col.reset()
 
-        dx = next_pos.value.x - hitbox.rect.centerx + xdir
-        dy = next_pos.value.y - hitbox.rect.centery + 1
-
+        # moving vector
+        d = next_pos.value - hitbox.center
         test_rect = hitbox.rect.copy()
+        test_rect.center = hitbox.center + d
+        step = d.normalize() if d.length() > 0 else Vector2(0, 0)
 
-        if dx != 0:
-            sign_x = 1 if dx > 0 else -1
-            remaining_dx = abs(dx)
-            while remaining_dx > 0:
-                step = min(remaining_dx, tile_size)
-                test_rect.centerx += sign_x * step
+        while d.dot(step) > 0 and engine.tilemap.colliderect(test_rect):
+            d -= step
+            test_rect.center = Vector2(test_rect.center) - step
 
-                x_edge = test_rect.right - 1 if sign_x > 0 else test_rect.left
-                y_start = test_rect.top // tile_size
-                y_end = (test_rect.bottom - 1) // tile_size
-                tile_x = x_edge // tile_size
+        if engine.tilemap.colliderect(test_rect):
+            test_rect = hitbox.rect.copy() # invert change
 
-                coll = False
-                for tile_y in range(y_start, y_end+1):
-                    if 0 <= tile_x < engine.tilemap.width and 0 <= tile_y < engine.tilemap.height:
-                        tile_id = engine.tilemap.grid[tile_y][tile_x]
-                        coll |= (tile_id != -1 and engine.tilemap.tileset.tiles[tile_id].hitbox)
+        # Now that collisions are resolved test limit collisions tlrb
+        for direction in ["left", "right", "top", "bottom"]:
+            setattr(col, direction, engine.tilemap.touch(test_rect)[direction])
 
-                if coll:
-                    if sign_x > 0:
-                        test_rect.right = tile_x * tile_size
-                        col.right = True
+        # update position
+        next_pos.value = Vector2(test_rect.center)
+        # Wall-sticking and on-ground flags
+        if col.right:
+            vel.value.x = 0
+            if xdir == 1.0 and not (col.bottom or col.top) and not state.has_any_flags(C.EntityState.JUMPING):
+                if engine.has_component(eid, C.WallSticking):
+                    wstick = engine.get_component(eid, C.WallSticking)
+                    if not state.has_any_flags(C.EntityState.WALL_STICKING, C.EntityState.WALL_SLIDING):
+                        state.flags |= C.EntityState.WALL_STICKING
+                        wstick.time_left = wstick.duration
+                        vel.value.y = 0
                     else:
-                        test_rect.left = (tile_x + 1) * tile_size
-                        col.left = True
-                    vel.value.x = 0
-                    break
-
-                remaining_dx -= step
-
-        if dy != 0:
-            sign_y = 1 if dy > 0 else -1
-            remaining_dy = abs(dy)
-            while remaining_dy > 0:
-                step = min(remaining_dy, tile_size)
-                test_rect.centery += sign_y * step
-
-                y_edge = test_rect.bottom - 1 if sign_y > 0 else test_rect.top
-                x_start = test_rect.left // tile_size
-                x_end = (test_rect.right - 1) // tile_size
-                tile_y = y_edge // tile_size
-
-                coll = False
-                for tile_x in range(x_start, x_end+1):
-                    if 0 <= tile_x < engine.tilemap.width and 0 <= tile_y < engine.tilemap.height:
-                        tile_id = engine.tilemap.grid[tile_y][tile_x]
-                        coll |= (tile_id != -1 and engine.tilemap.tileset.tiles[tile_id].hitbox)
-
-                if coll:
-                    if sign_y > 0:
-                        test_rect.bottom = tile_y * tile_size
-                        col.bottom = True
+                        if wstick.time_left > 0:
+                            wstick.time_left -= dt
+                        else:
+                            state.flags &= ~C.EntityState.WALL_STICKING
+                            state.flags |= C.EntityState.WALL_SLIDING
+        elif col.left:
+            vel.value.x = 0
+            if xdir == -1.0 and not (col.bottom or col.top) and not state.has_any_flags(C.EntityState.JUMPING):
+                if engine.has_component(eid, C.WallSticking):
+                    wstick = engine.get_component(eid, C.WallSticking)
+                    if not state.has_any_flags(C.EntityState.WALL_STICKING, C.EntityState.WALL_SLIDING):
+                        state.flags |= C.EntityState.WALL_STICKING
+                        wstick.time_left = wstick.duration
+                        vel.value.y = 0
                     else:
-                        test_rect.top = (tile_y + 1) * tile_size
-                        col.top = True
-                    vel.value.y = 0
-                    break
-
-                remaining_dy -= step
-
-        if not (col.left or col.right):
-            test_rect.centerx -= xdir
-        if not (col.top or col.bottom):
-            test_rect.centery -= 1
-
-        next_pos.value = Vector2(*test_rect.center)
-
-        if col.right and xdir == 1.0 and not col.bottom:
-            if engine.has_component(eid, C.WallSticking):
-                wstick = engine.get_component(eid, C.WallSticking)
-                if not state.has_any_flags(C.EntityState.WALL_STICKING,
-                                    C.EntityState.WALL_SLIDING):
-                    state.flags |= C.EntityState.WALL_STICKING
-                    wstick.time_left = wstick.duration
-                    vel.value.y = 0
-                else:
-                    if wstick.time_left > 0:
-                        wstick.time_left -= dt
-                    else:
-                        state.flags &= ~C.EntityState.WALL_STICKING
-                        state.flags |= C.EntityState.WALL_SLIDING
-
-        elif col.left and xdir == -1.0 and not col.bottom:
-            if engine.has_component(eid, C.WallSticking):
-                wstick = engine.get_component(eid, C.WallSticking)
-                if not state.has_any_flags(C.EntityState.WALL_STICKING,
-                                    C.EntityState.WALL_SLIDING):
-                    state.flags |= C.EntityState.WALL_STICKING
-                    wstick.time_left = wstick.duration
-                    vel.value.y = 0
-                else:
-                    if wstick.time_left > 0:
-                        wstick.time_left -= dt
-                    else:
-                        state.flags &= ~C.EntityState.WALL_STICKING
-                        state.flags |= C.EntityState.WALL_SLIDING
-
+                        if wstick.time_left > 0:
+                            wstick.time_left -= dt
+                        else:
+                            state.flags &= ~C.EntityState.WALL_STICKING
+                            state.flags |= C.EntityState.WALL_SLIDING
         else:
             state.flags &= ~(C.EntityState.WALL_STICKING | C.EntityState.WALL_SLIDING)
 
         if col.bottom:
+            vel.value.y = 0
             state.flags |= C.EntityState.ON_GROUND
-
         else:
             state.flags &= ~C.EntityState.ON_GROUND
+
+        if col.top:
+            vel.value.y = 60
 
 
 def UpdateHitboxAndPositionSystem(engine, dt: float) -> None:

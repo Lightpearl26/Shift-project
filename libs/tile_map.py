@@ -166,6 +166,7 @@ class TilesetData:
 @dataclass
 class Parallax:
     data: dict
+    animated: bool = False
 
     def __init__(self, data) -> None:
         self.data = data
@@ -173,31 +174,56 @@ class Parallax:
 
     def render(self) -> Surface:
         """
-        Renders the parallax
+        Render the parallax and return the surface
         """
         if self.data["type"] == "img":
-            # Fix image
             if not self._cache:
                 self._cache = img_load(self.data["path"]).convert_alpha()
             return self._cache
-        else:
-            # Tilemap
-            if not self._cache:
-                self._cache = TileMap.load(self.data["name"])
-            tm = self._cache
-            tm_w = tm.width*tm.tileset.tile_size
-            tm_h = tm.height*tm.tileset.tile_size
-            surface = Surface((tm_w, tm_h), SRCALPHA)
-            for y, row in enumerate(tm.grid):
-                for x, tid in enumerate(row):
-                    if tid == -1:
-                        continue
-                    tdata = tm.tileset.tiles[tid]
-                    neighboorhood = tm.get_tile_neighbors(x, y)
-                    tsurf = tm.tileset.renderer.render(tdata, neighboorhood)
-                    surface.blit(tsurf, (x*tm.tileset.tile_size, y*tm.tileset.tile_size))
 
-            return surface
+        # Load the Tilemap if not already done
+        if not self._cache:
+            tm = TileMap.load(self.data["name"])
+            self.animated = any(
+                tid != -1 and len(tm.tileset.tiles[tid].graphics) > 1
+                for line in tm.grid
+                for tid in line
+            )
+            # If not animated we cache the render of the tilemap
+            if not self.animated:
+                tm_w = tm.width * tm.tileset.tile_size
+                tm_h = tm.height * tm.tileset.tile_size
+                surface = Surface((tm_w, tm_h), SRCALPHA)
+                for y, row in enumerate(tm.grid):
+                    for x, tid in enumerate(row):
+                        if tid == -1:
+                            continue
+                        tdata = tm.tileset.tiles[tid]
+                        neighboorhood = tm.get_tile_neighbors(x, y)
+                        tsurf = tm.tileset.renderer.render(tdata, neighboorhood)
+                        surface.blit(tsurf, (x*tm.tileset.tile_size, y*tm.tileset.tile_size))
+                self._cache = surface
+            else:
+                self._cache = tm
+
+        # If cache is a surface then it is not animated
+        if isinstance(self._cache, Surface):
+            return self._cache
+
+        # Else it is animated we need to redraw it
+        tm = self._cache
+        tm_w = tm.width * tm.tileset.tile_size
+        tm_h = tm.height * tm.tileset.tile_size
+        surface = Surface((tm_w, tm_h), SRCALPHA)
+        for y, row in enumerate(tm.grid):
+            for x, tid in enumerate(row):
+                if tid == -1:
+                    continue
+                tdata = tm.tileset.tiles[tid]
+                neighboorhood = tm.get_tile_neighbors(x, y)
+                tsurf = tm.tileset.renderer.render(tdata, neighboorhood)
+                surface.blit(tsurf, (x*tm.tileset.tile_size, y*tm.tileset.tile_size))
+        return surface
 
 
 # --------------------------
@@ -244,6 +270,55 @@ class TileMap:
                 neighbors.append(1)
         return neighbors
 
+    def colliderect(self, rect: Rect) -> bool:
+        """
+        Check if a Rect overlap a colliding tile
+        """
+        tile_size = self.tileset.tile_size
+        range_x = range(max(0, rect.left//tile_size-1), min(rect.right//tile_size+1, self.width))
+        range_y = range(max(0, rect.top//tile_size-1), min(rect.bottom//tile_size+1, self.height))
+        tile_rects = [
+            Rect(x*tile_size, y*tile_size, tile_size, tile_size)
+            for x in range_x
+            for y in range_y
+            if self.grid[y][x] != -1 and self.tileset.tiles[self.grid[y][x]].hitbox
+        ]
+        return any(tile_rect.colliderect(rect) for tile_rect in tile_rects)
+
+    def touch(self, rect: Rect) -> dict[str, bool]:
+        """
+        Check if a rect is touching a colliding tile
+        """
+        tile_size = self.tileset.tile_size
+        touching = {direction: False for direction in ["top", "bottom", "left", "right"]}
+        tile_range_x = range(max(0, rect.left//tile_size),
+                             min((rect.right-1)//tile_size+1, self.width))
+        tile_range_y = range(max(0, rect.top//tile_size),
+                             min((rect.bottom-1)//tile_size+1, self.height))
+
+        touching["left"] = any(
+            self.tileset.tiles[tid].hitbox
+            for y in tile_range_y
+            if (tid := self.grid[y][(rect.left-1)//tile_size]) != -1
+        )
+        touching["right"] = any(
+            self.tileset.tiles[tid].hitbox
+            for y in tile_range_y
+            if (tid := self.grid[y][(rect.right)//tile_size]) != -1
+        )
+        touching["top"] = any(
+            self.tileset.tiles[tid].hitbox
+            for x in tile_range_x
+            if (tid := self.grid[(rect.top-1)//tile_size][x]) != -1
+        )
+        touching["bottom"] = any(
+            self.tileset.tiles[tid].hitbox
+            for x in tile_range_x
+            if (tid := self.grid[(rect.bottom)//tile_size][x]) != -1
+        )
+
+        return touching
+
 
 # --------------------------
 # | TileMapRenderer        |
@@ -283,10 +358,9 @@ class TileMapRenderer:
                 if tid == -1:
                     continue
                 tdata = tilemap.tileset.tiles[tid]
-                posx = x * tdata.size - cam_rect.left
-                posy = y * tdata.size - cam_rect.top
-                tile_rect = Rect(posx, posy, tdata.size, tdata.size)
-                if tile_rect.colliderect(surface.get_rect()):
+                pos = Vector2(x*tdata.size, y*tdata.size)
+                tile_rect = Rect(pos.x, pos.y, tdata.size, tdata.size)
+                if tile_rect.colliderect(cam_rect):
                     neighbors = tilemap.get_tile_neighbors(x, y)
                     tile_surf = tilemap.tileset.renderer.render(tdata, neighbors)
-                    surface.blit(tile_surf, (posx, posy))
+                    surface.blit(tile_surf, pos-Vector2(cam_rect.topleft))

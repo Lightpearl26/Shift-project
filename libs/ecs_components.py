@@ -26,8 +26,8 @@ from . import ecs_ai
 # --------------------------
 JUMP_STRENGTH: float = 1e4
 JUMP_DURATION: float = 0.2
-WALK_ACC: float = 1000.0
-RUN_ACC: float = 2000.0
+WALK_ACC: float = 150.0
+RUN_ACC: float = 300.0
 
 
 # --------------------------
@@ -112,7 +112,7 @@ class NextPosition(ComponentBase):
     @classmethod
     def from_dict(cls, data: dict):
         x = data.get("x", 0)
-        y = data.get("y",0)
+        y = data.get("y", 0)
         return cls(Vector2(x, y))
 
 
@@ -479,5 +479,5 @@ class Walk(ComponentBase):
     """
     walking and running informations of the Entity
     """
-    walk_acc: float = WALK_ACC
-    run_acc: float = RUN_ACC
+    walk_speed: float = WALK_ACC
+    run_speed: float = RUN_ACC
