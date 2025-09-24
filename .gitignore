@@ -162,3 +162,4 @@ cython_debug/
 # Projects cache
 cache/
 *.log
+update_components.py

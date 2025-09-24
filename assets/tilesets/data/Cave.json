@@ -1,0 +1,8 @@
+{
+	"tile_size": 48,
+	"files": ["cave bricks 2.png", "cave bricks.png"],
+	"tiles": [
+		{"file": "cave bricks 2.png", "hitbox": 1, "type": "field", "frames": [[0, 0]], "animation_delay": 0.33},
+		{"file": "cave bricks.png", "hitbox": 1, "type": "field", "frames": [[0, 0]], "animation_delay": 0.33}
+	]
+}

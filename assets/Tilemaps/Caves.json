@@ -30,6 +30,6 @@
 	],
 	"entities": [],
 	"parallax": [
-		{"type": "img", "path": "assets\\wallpaperflare.com_wallpaper.jpg"}
+		{"type": "img", "path": "assets/wallpaperflare.com_wallpaper.jpg"}
 	]
 }

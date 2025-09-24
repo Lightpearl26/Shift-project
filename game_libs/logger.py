@@ -1,7 +1,7 @@
 #-*- coding: utf-8 -*-
 
 """
-SHIFT PROJECT libs
+SHIFT PROJECT game_libs
 ____________________________________________________________________________________________________
 logger lib
 version : 1.0
@@ -12,12 +12,16 @@ ________________________________________________________________________________
 """
 
 # import external modules
+from typing import Optional
 from os.path import join, getmtime, exists
 from os import listdir, mkdir, remove
 from threading import current_thread
 from time import ctime, localtime
 import traceback
 import sys
+
+# Import config
+from . import config
 
 # Create module constants
 LOG_FOLDER: str = join("cache", "logs")
@@ -64,26 +68,27 @@ class Logger:
         self.debug("Logger initialized")
 
     # create logging methods
-    def debug(self, message: str) -> dict[str, str]:
+    def debug(self, message: str) -> Optional[dict[str, str]]:
         """
         this methods logs a debug message and return the string of the corresponding log
         """
-        level = "Debug"
-        time = ctime()
-        threadname = current_thread().name
-        log = {
-            "level": level,
-            "time": time,
-            "thread": threadname,
-            "message": message
-        }
-        self.logs.append(log)
-        if self.instant_log:
-            strflog = f"[ {level} ][ {threadname} ][ {time} ]: {message}"
-            print(strflog)
-        self.log_file.write(self.get_strflog(log)+"\n")
-        self.log_file.flush()
-        return log
+        if config.LOG_DEBUG:
+            level = "Debug"
+            time = ctime()
+            threadname = current_thread().name
+            log = {
+                "level": level,
+                "time": time,
+                "thread": threadname,
+                "message": message
+            }
+            self.logs.append(log)
+            if self.instant_log:
+                strflog = f"[ {level} ][ {threadname} ][ {time} ]: {message}"
+                print(strflog)
+            self.log_file.write(self.get_strflog(log)+"\n")
+            self.log_file.flush()
+            return log
 
     def info(self, message: str) -> dict[str, str]:
         """
@@ -108,7 +113,7 @@ class Logger:
 
     def warning(self, message: str) -> dict[str, str]:
         """
-        this methods logs a debug message and return the string of the corresponding log
+        this methods logs a warning message and return the string of the corresponding log
         """
         level = "Warning"
         time = ctime()
@@ -129,7 +134,7 @@ class Logger:
 
     def error(self, message: str) -> dict[str, str]:
         """
-        this methods logs a debug message and return the string of the corresponding log
+        this methods logs a error message and return the string of the corresponding log
         """
         level = "Error"
         time = ctime()
@@ -150,7 +155,7 @@ class Logger:
 
     def fatal(self, message: str) -> None:
         """
-        this methods logs a debug message and return the string of the corresponding log
+        this methods logs a fatal error message and return the string of the corresponding log
         """
         level = "Fatal"
         time = ctime()

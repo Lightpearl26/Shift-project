@@ -1,0 +1,26 @@
+{
+    "tilemap": "Caves",
+    "systems": [
+        "tile_animation_system",
+        "ai_system",
+        "player_control_system",
+        "drag_system",
+        "gravity_system",
+        "jump_system",
+        "movement_system",
+        "move_prediction_system",
+        "map_collision_system",
+        "sync_hitbox_system",
+        "camera_system"
+    ],
+    "player": {
+        "Hitbox": {
+            "x": 0,
+            "y": 0
+        }
+    },
+    "camera": {
+        "x": 0.0,
+        "y": 0.0
+    }
+}
