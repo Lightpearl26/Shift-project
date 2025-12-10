@@ -15,10 +15,9 @@ ________________________________________________________________________________
 # import external modules
 from __future__ import annotations
 from math import cos, sin, radians
-from pygame import Vector2
-from pygame import KEYDOWN, KEYUP, K_SPACE, K_RIGHT, K_LEFT, K_d, K_q, K_a, K_LCTRL
+from pygame import Vector2, Rect
+from pygame import K_SPACE, K_RIGHT, K_LEFT, K_d, K_q, K_a, K_LCTRL
 from pygame.key import get_pressed
-from pygame.event import get as get_events, post as post_event
 
 # import needed protocols of the package
 from ..header import (
@@ -37,7 +36,8 @@ from ..header import (
     Hitbox,
     MapCollision,
     WallSticking,
-    CameraFollow
+    CameraFollow,
+    Controlled
 )
 
 # import config
@@ -53,6 +53,9 @@ def tile_animation_system(engine: Engine, level: Level, dt: float) -> None:
     System updating animation of the tiles of the level
     """
     level.tilemap.tileset.update_animation(dt)
+    for parallax in level.tilemap.parallax:
+        if hasattr(parallax, "tm"):
+            parallax.tm.tileset.update_animation(dt)
 
 
 # ----- AiSystem ----- #
@@ -62,7 +65,7 @@ def ai_system(engine: Engine, level: Level, dt: float) -> None:
     """
     for eid in engine.get_entities_with(C.AI):
         logic: Logic = engine.get_component(eid, C.AI).logic
-        logic(eid, engine, dt)
+        logic(eid, engine, level, dt)
 
 
 # ----- PlayerControlSystem ----- #
@@ -70,54 +73,44 @@ def player_control_system(engine: Engine, level: Level, dt: float) -> None:
     """
     System handling user input to player
     """
-    events = get_events()
-    keys = get_pressed()
-
     for eid in engine.get_entities_with(C.CONTROLLED):
         xdir: XDirection = engine.get_component(eid, C.XDIRECTION)
-        vel: Velocity = engine.get_component(eid, C.VELOCITY)
         state: State = engine.get_component(eid, C.STATE)
         jump: Jump = engine.get_component(eid, C.JUMP)
-        walk: Walk = engine.get_component(eid, C.WALK)
-
-        for event in events:
-            if event.type == KEYDOWN:
-                if event.key == K_SPACE and state.has_flag("CAN_JUMP"):
+        controlled: Controlled = engine.get_component(eid, C.CONTROLLED)
+        keys = controlled.key_state
+        if state.has_flag("CAN_JUMP"):
+            if keys[K_SPACE]:
+                if state.has_flag("ON_GROUND"):
                     jump.time_left = jump.duration
-                    if state.has_flag("ON_GROUND"):
-                        jump.direction = 90.0
-                    elif state.has_flag("WALL_SLIDING", "WALL_STICKING"):
-                        if xdir.value == 1.0:
-                            jump.direction = 120.0
-                            xdir.value = -1.0
-                        else:
-                            jump.direction = 60.0
-                            xdir.value = 1.0
-                else:
-                    post_event(event)
-            elif event.type == KEYUP:
-                if event.key == K_SPACE:
-                    jump.time_left = 0
-                else:
-                    post_event(event)
+                    jump.direction = 90.0
+                if state.has_flag("WALL_STICKING") or state.has_flag("WALL_SLIDING"):
+                    jump.time_left = jump.duration
+                    if xdir.value == 1.0:
+                        jump.direction = 120.0
+                        xdir.value = -1.0
+                    else:
+                        jump.direction = 60.0
+                        xdir.value = 1.0
             else:
-                post_event(event)
+                jump.time_left = 0.0
+
+        if state.has_flag("JUMPING") and not keys[K_SPACE]:
+            jump.time_left = 0.0
 
         if state.has_flag("CAN_MOVE"):
             if keys[K_RIGHT] or keys[K_d]:
                 xdir.value = 1.0
                 running = keys[K_LCTRL] or keys[K_a]
-                speed = walk.run_speed if running else walk.walk_speed
                 state.add_flag(EntityState.RUNNING if running else EntityState.WALKING)
                 state.remove_flag(EntityState.WALKING if running else EntityState.RUNNING)
-                vel.x = speed
+
             elif keys[K_LEFT] or keys[K_q]:
                 xdir.value = -1.0
                 running = keys[K_LCTRL] or keys[K_a]
-                speed = walk.run_speed if running else walk.walk_speed
                 state.add_flag(EntityState.RUNNING if running else EntityState.WALKING)
                 state.remove_flag(EntityState.WALKING if running else EntityState.RUNNING)
-                vel.x = -speed
+
             else:
                 state.remove_flag(EntityState.RUNNING)
                 state.remove_flag(EntityState.WALKING)
@@ -144,7 +137,10 @@ def drag_system(engine: Engine, level: Level, dt: float) -> None:
         else:
             coef = 5.0
 
-        vel.value *= 1 - coef * config.DRAG_BASE * dt * mass.value
+        drag_factor = 1.0 - coef * config.DRAG_BASE * dt * mass.value
+        drag_factor = max(0.0, min(1.0, drag_factor))  # Clamp pour éviter l'inversion
+
+        vel.value *= drag_factor
 
         if vel.value.length() < 0.01:
             vel.value = Vector2(0, 0)
@@ -274,7 +270,7 @@ def map_collision_system(engine: Engine, level: Level, dt: float) -> None:
             if xdir.value == 1.0 and not (col.top or col.bottom) and not state.has_flag("JUMPING"):
                 if engine.has_component(eid, C.WALLSTICKING):
                     wstick: WallSticking = engine.get_component(eid, C.WALLSTICKING)
-                    if not state.has_any_flag(EntityState.WALL_SLIDING, EntityState.WALL_STICKING):
+                    if not state.has_any_flags(EntityState.WALL_SLIDING, EntityState.WALL_STICKING):
                         state.add_flag(EntityState.WALL_STICKING)
                         wstick.time_left = wstick.duration
                         vel.y = 0
@@ -290,7 +286,7 @@ def map_collision_system(engine: Engine, level: Level, dt: float) -> None:
             if xdir.value == -1.0 and not (col.top or col.bottom) and not state.has_flag("JUMPING"):
                 if engine.has_component(eid, C.WALLSTICKING):
                     wstick: WallSticking = engine.get_component(eid, C.WALLSTICKING)
-                    if not state.has_any_flag(EntityState.WALL_SLIDING, EntityState.WALL_STICKING):
+                    if not state.has_any_flags(EntityState.WALL_SLIDING, EntityState.WALL_STICKING):
                         state.add_flag(EntityState.WALL_STICKING)
                         wstick.time_left = wstick.duration
                         vel.y = 0
@@ -333,10 +329,10 @@ def camera_system(engine: Engine, level: Level, dt: float) -> None:
     """
     eid = next(engine.get_entities_with(C.CAMERAFOLLOW), None)
 
-    if not eid:
+    if eid is None:
         return
 
-    pos: Vector2 = engine.get_component(eid, C.HITBOX).pos
+    rect: Rect = engine.get_component(eid, C.HITBOX).rect
     follow: CameraFollow = engine.get_component(eid, C.CAMERAFOLLOW)
 
     cam = level.camera
@@ -347,15 +343,15 @@ def camera_system(engine: Engine, level: Level, dt: float) -> None:
 
     new_cam = cam.pos
 
-    if pos.x < follow.deadzone.left:
-        new_cam.x -= follow.deadzone.left - pos.x
-    elif pos.x > follow.deadzone.right:
-        new_cam.x += pos.x - follow.deadzone.right
+    if rect.left < follow.deadzone.left:
+        new_cam.x -= follow.deadzone.left - rect.left
+    elif rect.right > follow.deadzone.right:
+        new_cam.x += rect.right - follow.deadzone.right
 
-    if pos.y < follow.deadzone.top:
-        new_cam.y -= follow.deadzone.top - pos.y
-    elif pos.y > follow.deadzone.bottom:
-        new_cam.y += pos.y - follow.deadzone.bottom
+    if rect.top < follow.deadzone.top:
+        new_cam.y -= follow.deadzone.top - rect.top
+    elif rect.bottom > follow.deadzone.bottom:
+        new_cam.y += rect.bottom - follow.deadzone.bottom
 
     # Smooth follow
     t = min(dt * follow.damping, 1.0)

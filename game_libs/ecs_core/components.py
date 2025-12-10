@@ -17,6 +17,7 @@ from typing import Callable
 from enum import IntFlag, auto
 from dataclasses import dataclass
 from pygame import Rect, Vector2
+from pygame.key import ScancodeWrapper, get_pressed
 
 # import configs
 from .. import config
@@ -54,13 +55,13 @@ class EntityState(IntFlag):
     """
     NONE: int = 0
 
-    # positionnal state
+    # positionnal states
     ON_GROUND: int = auto()
     WALL_STICKING: int = auto()
     CROUCHING: int = auto()
     HANGING: int = auto()
 
-    # movement state
+    # movement states
     WALKING: int = auto()
     RUNNING: int = auto()
     JUMPING: int = auto()
@@ -69,17 +70,17 @@ class EntityState(IntFlag):
     FALLING: int = auto()
     WALL_SLIDING: int = auto()
 
-    # status state
+    # status states
     FREEZED: int = auto()
     SLOWED: int = auto()
     SHIELDED: int = auto()
     HURTED: int = auto()
     INVISIBLE: int = auto()
 
-    # combined state
+    # combined states
     IGNORE_GRAVITY: int = ON_GROUND | WALL_STICKING | FREEZED | DASHING | HANGING
     CAN_JUMP: int = ON_GROUND | WALL_STICKING | WALL_SLIDING | HANGING | CLIMBING
-    CAN_MOVE: int = ON_GROUND | FALLING | HANGING | CLIMBING
+    CAN_MOVE: int = ON_GROUND | FALLING | HANGING | CLIMBING | JUMPING
     MOVING: int = WALKING | RUNNING | JUMPING | DASHING | FALLING | WALL_SLIDING | CLIMBING
     NO_DRAG: int = CROUCHING | WALL_STICKING | DASHING | HANGING | FREEZED | CLIMBING
 
@@ -344,6 +345,12 @@ class Controlled(Component):
     """
     Entity is controlled by a player
     """
+    key_state: ScancodeWrapper
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Controlled:
+        key_state = data.get("key_state", get_pressed())
+        return cls(key_state)
 
 
 @dataclass

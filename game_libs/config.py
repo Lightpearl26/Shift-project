@@ -13,27 +13,31 @@ ________________________________________________________________________________
 
 # import external module
 from os.path import join
+from pygame import FULLSCREEN
 
 # ----- System constants ----- #
-LOG_DEBUG: bool = True
+LOG_DEBUG: bool = False
+SCREEN_SIZE: tuple[int, int] = (1920, 1080) # px²
+SCREEN_FLAGS: int = FULLSCREEN
+TPS_MAX: int = 20 # max ticks per second
 
 # ----- Jumping constants ----- #
-JUMP_STRENGTH: float = 3.6e3 # N
+JUMP_STRENGTH: float = 2.8e5 # N
 JUMP_DURATION: float = 0.2 # s
 
 # ----- Wallsticking constants ----- #
-WALLSTICK_DURATION: float = 0.1 # s
+WALLSTICK_DURATION: float = 0.5 # s
 
 # ----- Movement constants ----- #
-WALK_SPEED: float = 150.0 # px/s
-RUN_SPEED: float = 300.0 # px/s
+WALK_SPEED: float = 1500.0 # px/s
+RUN_SPEED: float = 2000.0 # px/s
 
 # ----- Camera constants ----- #
 CAMERA_DAMPING: float = 8.0
 CAMERA_SIZE: tuple[int, int] = (1920, 1080) # px²
 
 # ----- Physics constants ----- #
-DRAG_BASE: float = 25.0 # kg/s
+DRAG_BASE: float = 0.005 # kg/s
 GRAVITY: float = 960 # px/s²
 
 # ----- Path constants ----- #

@@ -1,5 +1,5 @@
 {
-    "tilemap": "Caves",
+    "tilemap": "tests",
     "systems": [
         "tile_animation_system",
         "ai_system",
@@ -16,11 +16,23 @@
     "player": {
         "Hitbox": {
             "x": 48,
-            "y": 96
+            "y": 200
         }
     },
     "camera": {
-        "x": 960.0,
-        "y": 540.0
-    }
+        "x": 0.0,
+        "y": 0.0
+    },
+    "entities": [
+        {
+            "name": "player",
+            "sprite": "player",
+            "overrides": {
+                "Hitbox": {
+                    "x": 96,
+                    "y": 200
+                }
+            }
+        }
+    ]
 }

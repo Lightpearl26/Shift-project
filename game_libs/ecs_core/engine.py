@@ -119,6 +119,7 @@ class Engine:
             if system_func and system_name in level.systems:
                 try:
                     system_func(self, level, dt)
+                    logger.debug(f"System [{system_name}] executed successfully")
                 except AttributeError as e:
                     logger.warning(f"System [{system_name}] failed due to missing attribute: {e}")
                 except TypeError as e:
@@ -131,5 +132,4 @@ class Engine:
             elif system_name in level.systems:
                 logger.warning(f"System [{system_name}] listed in level"
                                " but missing in systems module")
-
         logger.debug("Engine update successful")

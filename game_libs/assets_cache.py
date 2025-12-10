@@ -15,6 +15,9 @@ ________________________________________________________________________________
 from pygame import Surface
 from pygame.image import load as img_load
 
+# import logger
+from . import logger
+
 
 # ----- GraphicsCache ----- #
 class AssetsCache:
@@ -31,5 +34,8 @@ class AssetsCache:
         """
         if not filepath in cls._images:
             cls._images[filepath] = img_load(filepath).convert_alpha()
+            logger.info(f"Image loaded and cached: {filepath}")
+            
+        logger.debug(f"Image loaded from cache: {filepath}")
 
         return cls._images[filepath]

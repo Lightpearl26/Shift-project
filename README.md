@@ -17,6 +17,7 @@ to help him during his journey
 (c) Copyrights *Lafiteau Franck* | *Castaing Guillaume*
 
 ---
+
 ## Installation Guide
 
 Install python version 3.13.2 or later

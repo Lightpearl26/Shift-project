@@ -44,6 +44,9 @@ from .assets_cache import AssetsCache
 # import config
 from . import config
 
+# import logger
+from . import logger
+
 
 # ----- AssetsRegistry ----- #
 class AssetsRegistry:
@@ -66,6 +69,8 @@ class AssetsRegistry:
         cls._parallax.clear()
         cls._levels.clear()
         cls._blueprints.clear()
+        
+        logger.debug("AssetsRegistry cache cleared")
 
     @classmethod
     def load_tileset(cls, tileset_name: str) -> TilesetData:
@@ -106,9 +111,12 @@ class AssetsRegistry:
                             blueprint=tile
                         )
                     )
+                    logger.debug(f"Tile loaded: {tile}")
 
             cls._tilesets[tileset_name] = TilesetData(tileset_name, tiles, tsize)
+            logger.info(f"Tileset [{tileset_name}] loaded and cached")
 
+        logger.debug(f"Tileset [{tileset_name}] loaded successfully")
         return cls._tilesets[tileset_name]
 
     @classmethod
@@ -126,13 +134,11 @@ class AssetsRegistry:
                 cls._parallax[key] = FixedParallaxData(img, parallax_key)
             elif parallax_type == "tilemap":
                 tm: TilemapData = cls.load_tilemap(parallax_key.get("name"))
-                animated = any(
-                    (not tid == -1) and (len(tm.tileset.tiles[tid].graphics) > 1)
-                    for row in tm.grid
-                    for tid in row
-                )
-                cls._parallax[key] = TilemapParallaxData(tm, animated, parallax_key)
+                cls._parallax[key] = TilemapParallaxData(tm, parallax_key)
+                
+            logger.info(f"Parallax [{parallax_key}] loaded and cached")
 
+        logger.debug(f"Parallax [{parallax_key}] loaded successfully")
         return cls._parallax[key]
 
     @classmethod
@@ -164,7 +170,9 @@ class AssetsRegistry:
                 entities,
                 parallax
             )
-
+            logger.info(f"Tilemap [{tilemap_name}] loaded and cached")
+        
+        logger.debug(f"Tilemap [{tilemap_name}] loaded successfully")
         return cls._tilemaps[tilemap_name]
 
     @classmethod
@@ -183,7 +191,9 @@ class AssetsRegistry:
                 data.get("components", []),
                 data.get("overrides", {})
             )
+            logger.info(f"Blueprint [{blueprint_name}] loaded and cached")
 
+        logger.debug(f"Blueprint [{blueprint_name}] loaded successfully")
         return cls._blueprints[blueprint_name]
 
     @classmethod
@@ -208,6 +218,7 @@ class AssetsRegistry:
                 systems,
                 []
             )
+            logger.info(f"Level [{level_name}] loaded and cached")
 
         level = cls._levels[level_name]
         engine.reset()
@@ -218,8 +229,11 @@ class AssetsRegistry:
             {"name": "player", "sprite": "player", "overrides": data.get("player", {})},
             is_player=True
         )
-        for entity_data in level.tilemap.entities:
-            level.entities.append(cls.new_entity(engine, entity_data))
+        for entity_data in data.get("entities", []):
+            entity = cls.new_entity(engine, entity_data)
+            level.entities.append(entity)
+        
+        logger.debug(f"Level [{level_name}] loaded successfully")
         return level
 
     @classmethod
@@ -229,6 +243,7 @@ class AssetsRegistry:
         if is_player is True return a Player instance instead
         """
         entity_blueprint = cls.load_blueprint(entity_data.get("name"))
+        logger.debug(f"Creating entity from blueprint: {entity_blueprint.name}")
         eid = engine.new_entity()
         sprite = None # TODO: sprite handling
 
@@ -237,8 +252,10 @@ class AssetsRegistry:
                 **entity_blueprint.overrides.get(comp_name, {}),
                 **entity_data.get("overrides", {}).get(comp_name, {})
             }
+            logger.debug(f"Adding component {comp_name} to entity {eid} with overrides {overrides}")
             engine.add_component(eid, C.from_str(comp_name), overrides)
 
+        logger.debug(f"Entity [{entity_blueprint.name}] created with eid {eid}")
         if is_player:
             return Player(eid, engine, sprite, entity_data.get("overrides", {}))
         return EntityData(eid, engine, sprite, entity_data.get("overrides", {}))

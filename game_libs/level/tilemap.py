@@ -82,8 +82,19 @@ class TilemapParallaxData:
     Data of a Parallax
     """
     tm: TilemapData
-    animated: bool
     blueprint: Optional[dict] = None
+
+    @property
+    def animated(self) -> bool:
+        """
+        Return if the parallax is animated
+        """
+        return any(
+            len(self.tm.tileset.tiles[tile_id].graphics) > 1
+            for row in self.tm.grid
+            for tile_id in row
+            if tile_id != -1
+        )
 
 
 # ----- TilemapData ----- #

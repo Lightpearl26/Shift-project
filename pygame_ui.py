@@ -743,7 +743,6 @@ class ListView(Frame):
 
         self.items = items
         self.selected_index: int = 0 if items else -1
-        self.selected_text: str | None = items[0] if items else None
         self.hover_index: int = -1
 
         # Font and colors from app theme
@@ -758,6 +757,15 @@ class ListView(Frame):
         # Adjust surface size: ensure it's at least frame height
         content_height = max(len(items) * self.item_height, rect.height)
         self.size = (rect.width, content_height)
+
+    @property
+    def selected_text(self) -> Optional[str]:
+        """
+        Get the currently selected text, or None if no selection.
+        """
+        if 0 <= self.selected_index < len(self.items):
+            return self.items[self.selected_index]
+        return None
 
     def handle_event(self, event: Event) -> bool:
         if not self.displayed:
@@ -776,7 +784,6 @@ class ListView(Frame):
             idx = int(posy // self.item_height)
             if 0 <= idx < len(self.items):
                 self.selected_index = idx
-                self.selected_text = self.items[idx]
             return True
 
         return super().handle_event(event)
@@ -1050,7 +1057,7 @@ class TabbedFrame(Frame):
     def __init__(self,
                  parent: Optional[UIWidget],
                  rect: Rect,
-                 selector: Selector,
+                 selector: Selector | ListView,
                  width: Optional[int]=None,
                  height: Optional[int]=None
                  ) -> None:
@@ -1070,13 +1077,28 @@ class TabbedFrame(Frame):
         """
         Update which frame is displayed based on the selector's current selection.
         """
-        selected_name = self.selector.selected_name
+        if isinstance(self.selector, ListView) and self.selector.selected_text is None:
+            for frame in self.frames.values():
+                frame.displayed = False
+            return
+        if isinstance(self.selector, Selector) and self.selector.selected_name is None:
+            for frame in self.frames.values():
+                frame.displayed = False
+            return
+        if isinstance(self.selector, ListView):
+            selected_name = self.selector.selected_text
+        else:
+            selected_name = self.selector.selected_name
         for name, frame in self.frames.items():
             frame.displayed = name == selected_name
 
     def handle_event(self, event: Event) -> bool:
         self.update_frame()
         return Frame.handle_event(self, event)
+
+    def render(self, surface):
+        self.update_frame()
+        super().render(surface)
 
 
 class Popup(Frame):
@@ -1112,14 +1134,19 @@ class Popup(Frame):
 
     def _get_widget_at(self, pos: tuple[int, int]) -> Optional[UIWidget]:
         """
-        Get the topmost widget at the given position
+        Get the topmost widget at the given position (descend recursively)
         """
         if self.close_button.rect.move(self.rect.topleft).collidepoint(pos):
             return self.close_button
-        for child in self.children + [self]:
-            if child.displayed and child.global_rect.collidepoint(pos):
-                return child
-        return None
+        def find_deepest(widget):
+            if not widget.displayed or not widget.global_rect.collidepoint(pos):
+                return None
+            for child in reversed(widget.children):
+                hit = find_deepest(child)
+                if hit:
+                    return hit
+            return widget
+        return find_deepest(self)
 
     def handle_event(self, event):
         if event.type == MOUSEMOTION:

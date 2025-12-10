@@ -1,36 +1,18 @@
 {
-    "Position": {
-        "x": 0,
-        "y": 0
-    },
-    "Velocity": {
-        "x": 0,
-        "y": 0
-    },
-    "Mass": {
-        "value": 60.0
-    },
-    "XDirection": {
-        "value": 1.0
-    },
-    "Jump": {
-        "strength": 4.5e5,
-        "duration": 0.1
-    },
-    "Hitbox": {
-        "x": 0,
-        "y": 0,
-        "width": 48,
-        "height": 48
-    },
-    "Walk": {},
-    "WallSticking": {
-        "duration": 0.2
-    },
-    "NextPosition": {},
-    "EntityCollisions": {"entities": []},
-    "MapCollisions": {},
-    "AI": {},
-    "State": {},
-    "Properties": {}
+    "components": [
+        "State",
+        "Properties",
+        "Hitbox",
+        "Velocity",
+        "NextPosition",
+        "XDirection",
+        "Mass",
+        "AI",
+        "Walk",
+        "MapCollision"
+    ],
+    "overrides": {
+        "Mass": {"value": 60.0},
+        "Hitbox": {"width": 48, "height": 96}
+    }
 }

@@ -16,6 +16,7 @@ from pygame import Surface, Rect, Vector2, SRCALPHA
 
 # import tilemap components
 from ..level.tilemap import TileData, FixedParallaxData, TilemapParallaxData, TilemapData
+from ..level.components import Camera
 
 # import header component
 from ..header import ParallaxData
@@ -180,7 +181,7 @@ class TilemapRenderer:
                          tilemap: TilemapData,
                          parallax: ParallaxData,
                          surface: Surface,
-                         camera) -> None:
+                         camera: Camera) -> None:
         """
         Render the parallax on the surface
         """
@@ -214,7 +215,7 @@ class TilemapRenderer:
             surface.blit(p_surf, offset)
 
     @classmethod
-    def _redraw_full(cls, tilemap: TilemapData, camera) -> None:
+    def _redraw_full(cls, tilemap: TilemapData, camera: Camera) -> None:
         """
         Redraw full tilemap
         """
@@ -250,7 +251,7 @@ class TilemapRenderer:
                     cls._animated_tiles.append((x, y))
 
     @classmethod
-    def _redraw_dirty(cls, tilemap: TilemapData, camera) -> None:
+    def _redraw_dirty(cls, tilemap: TilemapData, camera: Camera) -> None:
         """
         Redraw animated tiles of tilemap
         """
@@ -269,23 +270,30 @@ class TilemapRenderer:
             cls._last_surface.blit(tile_surf, pos)
 
     @classmethod
-    def render(cls, tilemap: TilemapData, surface: Surface, camera) -> None:
+    def render(cls, tilemap: TilemapData, surface: Surface, camera: Camera, alpha: float) -> None:
         """
         Render the tilemap on surface
         """
-        # First we render parallax
-        for parallax in tilemap.parallax:
-            cls._render_parallax(tilemap, parallax, surface, camera)
+        prev_pos = cls._last_camera_pos or Vector2(camera.pos)
+        curr_pos = Vector2(camera.pos)
+        interp_pos = prev_pos.lerp(curr_pos, alpha)
+        interp_camera = Camera(interp_pos, camera.size)
+        
+        # render parallax
+        for parallax in reversed(tilemap.parallax):
+            cls._render_parallax(tilemap, parallax, surface, interp_camera)
+            
+
         if not cls._last_surface:
             cls._last_surface = Surface(camera.rect.size, SRCALPHA)
-            cls._last_camera_pos = camera.pos
-            cls._redraw_full(tilemap, camera)
+            cls._redraw_full(tilemap, interp_camera)
+            cls._last_camera_pos = Vector2(int(interp_pos.x), int(interp_pos.y))
 
-        elif not cls._last_camera_pos == camera.pos:
-            cls._redraw_full(tilemap, camera)
-            cls._last_camera_pos = camera.pos
-
+        elif not cls._last_camera_pos == interp_pos:
+            cls._redraw_full(tilemap, interp_camera)
+            cls._last_camera_pos = Vector2(int(interp_pos.x), int(interp_pos.y))
         else:
-            cls._redraw_dirty(tilemap, camera)
+            cls._redraw_dirty(tilemap, interp_camera)
+        
 
         surface.blit(cls._last_surface, (0, 0))

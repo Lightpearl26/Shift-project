@@ -29,8 +29,5 @@
 		[ 1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1]
 	],
 	"entities": [],
-	"parallax": [
-		{"type": "tilemap", "name": "Parallax 2"},
-		{"type": "img", "img": "assets/wallpaperflare.com_wallpaper.jpg"}
-	]
+	"parallax": []
 }

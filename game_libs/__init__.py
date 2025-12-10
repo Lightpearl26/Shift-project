@@ -15,6 +15,9 @@ from . import config
 
 from .logger import Logger, LoggerInterrupt
 
+# create main logger of the system
+logger: Logger = Logger()
+
 from . import (
     header,
     ecs_core,
@@ -23,6 +26,3 @@ from . import (
     assets_cache,
     assets_registry
 )
-
-# create main logger of the system
-logger: Logger = Logger()

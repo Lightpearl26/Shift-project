@@ -1,5 +1,5 @@
 {
-    "tilemap": "Caves",
+    "tilemap": "Tuto-1",
     "systems": [
         "tile_animation_system",
         "ai_system",
@@ -15,12 +15,12 @@
     ],
     "player": {
         "Hitbox": {
-            "x": 48,
-            "y": 96
+            "x": 100,
+            "y": 384
         }
     },
     "camera": {
-        "x": 960.0,
-        "y": 540.0
+        "x": 0.0,
+        "y": 0.0
     }
 }
