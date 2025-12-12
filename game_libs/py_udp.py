@@ -31,7 +31,7 @@ from . import logger
 Address = tuple[str, int]
 
 # create module constants
-LOCALHOST: str = gethostbyname(gethostname())
+LOCALHOST: str = "87.231.28.99"
 PORT: int = 2802
 DEFAULT_ADDRESS: Address = (LOCALHOST, PORT)
 DEFAULT_BUFFER_SIZE: int = 1024
@@ -77,6 +77,25 @@ class P2PClient:
         self.socket: SocketType = SocketType(AF_INET, SOCK_DGRAM)
         self.socket.settimeout(2.0)
         self.socket.setblocking(False)
+        
+        # --- Ajout UPnP ici ---
+        try:
+            upnp = UPnP()
+            upnp.discoverdelay = 200
+            upnp.discover()
+            upnp.selectigd()
+            external_ip = upnp.externalipaddress()
+            upnp.addportmapping(
+                self.address[1], 'UDP',
+                upnp.lanaddr, self.address[1],
+                'Shift Project P2P', ''
+            )
+            logger.info(f"UPnP: Port {self.address[1]} UDP ouvert sur {external_ip}")
+            self.external_ip = external_ip
+        except Exception as e:
+            logger.warning(f"UPnP non disponible ou échec de l’ouverture du port : {e}")
+            self.external_ip = None
+        
         logger.info(f"UDP Client initialized with address {self.address} and buffer size {self.buffer_size}")
 
     def send(self, data: bytes) -> None:
@@ -84,7 +103,7 @@ class P2PClient:
         Send data to the other Peer
         """
         self.socket.sendto(data, self.address)
-        logger.debug(f"Sent data to {self.address}")
+        logger.info(f"Sent data to {self.address}")
 
     def receive(self) -> Optional[bytes]:
         """
