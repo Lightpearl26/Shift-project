@@ -25,7 +25,7 @@ last_pos = pygame.Vector2(engine.get_component(level.player.eid, "Hitbox").rect.
 last_camera_pos = pygame.Vector2(level.camera.pos)
 
 # Initialize UDP server (for future use)
-udp_client = P2PClient()
+udp_client = P2PClient(player_id=0)
 
 
 # Main loop
@@ -47,12 +47,12 @@ while running:
         fixed_timer -= fixed_dt
         data: bytes | None = udp_client.receive()
         if data is not None:
-            key_state = decode(data)
+            key_state = data
         else:
             key_state = pygame.key.ScancodeWrapper((False,) * 512)
         engine.get_component(1, "Controlled").key_state = key_state
         engine.get_component(level.player.eid, "Controlled").key_state = pygame.key.get_pressed()
-        udp_client.send(encode(engine.get_component(level.player.eid, "Controlled").key_state))
+        udp_client.send(engine.get_component(level.player.eid, "Controlled").key_state)
         engine.update(level, fixed_dt)
 
     for event in pygame.event.get():

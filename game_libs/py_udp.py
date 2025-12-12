@@ -16,8 +16,7 @@ from __future__ import annotations
 from typing import Optional
 from socket import (
     socket as SocketType,
-    gethostbyname,
-    gethostname,
+    timeout,
     AF_INET,
     SOCK_DGRAM
 )
@@ -31,7 +30,7 @@ from . import logger
 Address = tuple[str, int]
 
 # create module constants
-LOCALHOST: str = "87.231.28.99"
+LOCALHOST: str = "192.168.0.16"
 PORT: int = 2802
 DEFAULT_ADDRESS: Address = (LOCALHOST, PORT)
 DEFAULT_BUFFER_SIZE: int = 1024
@@ -70,15 +69,16 @@ class P2PClient:
     """
     def __init__(self,
                  address: Address = DEFAULT_ADDRESS,
-                 buffer_size: int = DEFAULT_BUFFER_SIZE
+                 buffer_size: int = DEFAULT_BUFFER_SIZE,
+                 player_id: int = 0
                 ) -> None:
         self.address: Address = address
         self.buffer_size: int = buffer_size
         self.socket: SocketType = SocketType(AF_INET, SOCK_DGRAM)
-        self.socket.settimeout(2.0)
-        self.socket.setblocking(False)
-        
-        # --- Ajout UPnP ici ---
+        self.socket.bind(("", PORT))
+        self.socket.settimeout(1/120)
+        self.player_id: int = player_id
+
         try:
             upnp = UPnP()
             upnp.discoverdelay = 200
@@ -95,15 +95,15 @@ class P2PClient:
         except Exception as e:
             logger.warning(f"UPnP non disponible ou échec de l’ouverture du port : {e}")
             self.external_ip = None
-        
+
         logger.info(f"UDP Client initialized with address {self.address} and buffer size {self.buffer_size}")
 
     def send(self, data: bytes) -> None:
         """
         Send data to the other Peer
         """
-        self.socket.sendto(data, self.address)
-        logger.info(f"Sent data to {self.address}")
+        self.socket.sendto(bytes(self.player_id) + encode(data), self.address)
+        logger.debug(f"Sent data to {self.address}")
 
     def receive(self) -> Optional[bytes]:
         """
@@ -111,8 +111,14 @@ class P2PClient:
         """
         try:
             data, _ = self.socket.recvfrom(self.buffer_size)
-            logger.debug(f"Received data from {self.address}")
-            return data
+            if data[0] != self.player_id:
+                logger.debug(f"Received data from {self.address}")
+                return decode(data[1:])
+            else:
+                logger.debug("Received own data, ignoring")
+                return None
+        except timeout:
+            return None
         except Exception as e:
             logger.error(f"Error receiving data: {e}")
             return None
