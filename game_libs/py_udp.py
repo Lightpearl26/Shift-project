@@ -53,7 +53,7 @@ def encode(data: ScancodeWrapper) -> bytes:
 
     return bytes(key_bytes)
 
-def decode(data: bytes) -> list[ScancodeWrapper]:
+def decode(data: bytes) -> ScancodeWrapper:
     """
     Decode data from UDP transmission
     """
@@ -61,118 +61,39 @@ def decode(data: bytes) -> list[ScancodeWrapper]:
     for byte in data:
         for bit_index in range(8):
             bits.append((byte >> bit_index) & 1 == 1)
-    return [ScancodeWrapper(bits[i:i+512]) for i in range(0, len(bits), 512)]
+    return ScancodeWrapper(bits)
 
-# ----- UDPClient ----- #
-class UDPClient:
+# ----- P2PClient ----- #
+class P2PClient:
     """
-    UDP Client for network communication
+    UDP P2P Client
     """
-    def __init__(self, address: Address = DEFAULT_ADDRESS) -> None:
-        self._socket: SocketType = SocketType(AF_INET, SOCK_DGRAM)
-        self._socket.connect(address)
-        self._socket.setblocking(False)
-        logger.info(f"UDP Client initialized with address {address}")
+    def __init__(self,
+                 address: Address = DEFAULT_ADDRESS,
+                 buffer_size: int = DEFAULT_BUFFER_SIZE
+                ) -> None:
+        self.address: Address = address
+        self.buffer_size: int = buffer_size
+        self.socket: SocketType = SocketType(AF_INET, SOCK_DGRAM)
+        self.socket.settimeout(2.0)
+        self.socket.setblocking(False)
+        logger.info(f"UDP Client initialized with address {self.address} and buffer size {self.buffer_size}")
 
     def send(self, data: bytes) -> None:
         """
-        Send data to the server
+        Send data to the other Peer
         """
-        try:
-            self._socket.send(data)
-            logger.debug(f"Sent data: {data}")
-        except Exception as e:
-            logger.error(f"Error sending data: {e}")
+        self.socket.sendto(data, self.address)
+        logger.debug(f"Sent data to {self.address}")
 
-    def receive(self, buffer_size: int = DEFAULT_BUFFER_SIZE) -> bytes:
+    def receive(self) -> Optional[bytes]:
         """
-        Receive data from the server
+        Receive data from the other peer
         """
         try:
-            data = self._socket.recv(buffer_size)
-            logger.debug(f"Received data: {data}")
+            data, _ = self.socket.recvfrom(self.buffer_size)
+            logger.debug(f"Received data from {self.address}")
             return data
         except Exception as e:
             logger.error(f"Error receiving data: {e}")
-            return b""
-
-    def close(self) -> None:
-        """
-        Close the UDP socket
-        """
-        self._socket.close()
-        logger.info("UDP Client socket closed")
-
-# ----- UDPServer ----- #
-class UDPServer:
-    """
-    UDP Server for network communication
-    """
-    def __init__(self, address: Address = DEFAULT_ADDRESS) -> None:
-        self._address: Address = address
-        self._socket: SocketType = SocketType(AF_INET, SOCK_DGRAM)
-        self._socket.bind(address)
-        self._socket.setblocking(False)
-        self._next_player_id: int = 0
-        self.clients: dict[int, tuple[Address, bytes]] = {}
-
-        self.upnp = UPnP()
-        self.external_ip: Optional[str] = None
-
-        self.try_upnp()
-
-        logger.info(f"UDP Server initialized and bound to address {address}")
-
-    def try_upnp(self) -> None:
-        """
-        Try to set up UPnP port forwarding
-        """
-        try:
-            self.upnp.discoverdelay = 1000
-            self.upnp.discover()
-
-            self.upnp.selectigd()
-            self.upnp.addportmapping(self._address[1], "UDP", self.upnp.lanaddr, self._address[1], "GameUDP", "")
-
-            self.external_ip = self.upnp.externalipaddress()
-
-            logger.info(f"UPnP success — Public: {self.external_ip}:{self._address[1]}")
-        except Exception as e:
-            logger.warning(f"UPnP failed: {e}")
-            self.external_ip = None
-
-    def tick(self, buffer_size: int = DEFAULT_BUFFER_SIZE) -> None:
-        """
-        check for incoming data from clients
-        """
-        try:
-            data, client_address = self._socket.recvfrom(buffer_size)
-            if not any(addr == client_address for addr, _ in self.clients.values()):
-                logger.info(f"New client connected: {client_address} assigned ID {self._next_player_id}")
-                self.clients[self._next_player_id] = (client_address, data)
-                self._next_player_id += 1
-            else:
-                for pid, (addr, _) in self.clients.items():
-                    if addr == client_address:
-                        self.clients[pid] = (addr, data)
-                        break
-
-            logger.debug(f"Received data from {client_address}: {data}")
-
-            payload: bytes = b"".join(self.clients[pid][1] for pid in sorted(self.clients.keys()))
-            for addr, _ in self.clients.values():
-                self._socket.sendto(payload, addr)
-                logger.debug(f"Sent data to {addr}: {payload}")
-        except (BlockingIOError, OSError) as e:
-            if not (isinstance(e, OSError) and getattr(e, "winerror", None) == 10035) and not (isinstance(e, BlockingIOError)):
-                logger.error(f"Socket error: {e}")
-        except Exception as e:
-            logger.error(f"Error in UDP Server tick: {e}")
-
-    def close(self) -> None:
-        """
-        Close the UDP socket
-        """
-        self._socket.close()
-        self.upnp.deleteportmapping(self._address[1], "UDP")
-        logger.info("UDP Server socket closed")
+            return None

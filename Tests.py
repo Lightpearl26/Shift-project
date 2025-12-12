@@ -8,7 +8,7 @@ from game_libs.assets_registry import AssetsRegistry
 from game_libs import config, logger
 from game_libs.rendering.level_renderer import LevelRenderer
 from game_libs.level.components import Camera
-from game_libs.py_udp import UDPClient, UDPServer, decode, encode
+from game_libs.py_udp import P2PClient, decode, encode
 
 # initialize pygame display
 logger.debug("Initializing Pygame")
@@ -25,8 +25,7 @@ last_pos = pygame.Vector2(engine.get_component(level.player.eid, "Hitbox").rect.
 last_camera_pos = pygame.Vector2(level.camera.pos)
 
 # Initialize UDP server (for future use)
-udp_server = UDPServer()
-udp_client = UDPClient()
+udp_client = P2PClient()
 
 
 # Main loop
@@ -46,19 +45,14 @@ while running:
     fixed_timer += dt
     while fixed_timer >= fixed_dt:
         fixed_timer -= fixed_dt
-        logger.debug("Ticking UDP server and client")
-        udp_server.tick()
-        logger.debug("Server ticked")
-        key_state: bytes = udp_client.receive()
-        if key_state and len(key_state) > 64:
-            engine.get_component(level.player.eid, "Controlled").key_state = decode(key_state)[0]
-            engine.get_component(1, "Controlled").key_state = decode(key_state)[1]
-        elif key_state and len(key_state) == 1:
-            engine.get_component(level.player.eid, "Controlled").key_state = decode(key_state)[0]
+        data: bytes | None = udp_client.receive()
+        if data is not None:
+            key_state = decode(data)
         else:
-            engine.get_component(level.player.eid, "Controlled").key_state = pygame.key.get_pressed()
-        udp_client.send(encode(pygame.key.get_pressed()))
-        logger.debug("Client ticked")
+            key_state = pygame.key.ScancodeWrapper((False,) * 512)
+        engine.get_component(1, "Controlled").key_state = key_state
+        engine.get_component(level.player.eid, "Controlled").key_state = pygame.key.get_pressed()
+        udp_client.send(encode(engine.get_component(level.player.eid, "Controlled").key_state))
         engine.update(level, fixed_dt)
 
     for event in pygame.event.get():

@@ -17,7 +17,6 @@ from __future__ import annotations
 from math import cos, sin, radians
 from pygame import Vector2, Rect
 from pygame import K_SPACE, K_RIGHT, K_LEFT, K_d, K_q, K_a, K_LCTRL
-from pygame.key import get_pressed
 
 # import needed protocols of the package
 from ..header import (
