@@ -25,7 +25,7 @@ last_pos = pygame.Vector2(engine.get_component(level.player.eid, "Hitbox").rect.
 last_camera_pos = pygame.Vector2(level.camera.pos)
 
 # Initialize UDP server (for future use)
-udp_client = P2PClient(player_id=0)
+udp_client = P2PClient()
 
 
 # Main loop

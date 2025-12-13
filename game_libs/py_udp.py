@@ -70,14 +70,12 @@ class P2PClient:
     def __init__(self,
                  address: Address = DEFAULT_ADDRESS,
                  buffer_size: int = DEFAULT_BUFFER_SIZE,
-                 player_id: int = 0
                 ) -> None:
         self.address: Address = address
         self.buffer_size: int = buffer_size
         self.socket: SocketType = SocketType(AF_INET, SOCK_DGRAM)
         self.socket.bind(("", PORT))
-        self.socket.settimeout(1/120)
-        self.player_id: int = player_id
+        self.socket.settimeout(1/200)
 
         try:
             upnp = UPnP()
@@ -102,7 +100,7 @@ class P2PClient:
         """
         Send data to the other Peer
         """
-        self.socket.sendto(bytes(self.player_id) + encode(data), self.address)
+        self.socket.sendto(encode(data), self.address)
         logger.debug(f"Sent data to {self.address}")
 
     def receive(self) -> Optional[bytes]:
@@ -110,13 +108,13 @@ class P2PClient:
         Receive data from the other peer
         """
         try:
-            data, _ = self.socket.recvfrom(self.buffer_size)
-            if data[0] != self.player_id:
+            data, address = self.socket.recvfrom(self.buffer_size)
+            logger.debug(f"Data received from {address}")
+            if address[0] == self.address[0]:
                 logger.debug(f"Received data from {self.address}")
-                return decode(data[1:])
-            else:
-                logger.debug("Received own data, ignoring")
-                return None
+                return decode(data)
+            logger.debug("Received own data, ignoring")
+            return None
         except timeout:
             return None
         except Exception as e:
