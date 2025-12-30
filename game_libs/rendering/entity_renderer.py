@@ -12,14 +12,17 @@ ________________________________________________________________________________
 """
 
 # import external modules
+from __future__ import annotations
+from typing import TYPE_CHECKING
 from pygame import Surface, Vector2, Color, SRCALPHA
 
 # import game components
 from ..level.entity import EntityData
 from ..level.components import Camera
 
-# import needed headers
-from ..header import Level, Hitbox
+if TYPE_CHECKING:
+    from ..level.level import Level
+    from ..ecs_core.components import Hitbox
 
 
 # ----- EntityRenderer ----- #

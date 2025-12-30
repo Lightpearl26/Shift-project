@@ -17,9 +17,6 @@ from typing import Optional
 from dataclasses import dataclass
 from pygame import Surface, Rect
 
-# import needed protocols
-from ..header import ParallaxData
-
 # create constants of the module
 SHAPES: dict[str, tuple[int, int]] = {
     "field": (2, 3),
@@ -174,6 +171,10 @@ class TilemapData:
         touching["left"] = any(self._hitbox_at((rect.left-1) // tile_size, y) for y in tile_range_y)
         touching["right"] = any(self._hitbox_at((rect.right) // tile_size, y) for y in tile_range_y)
         touching["top"] = any(self._hitbox_at(x, (rect.top-1) // tile_size) for x in tile_range_x)
-        touching["bottom"] = any(self._hitbox_at(x, (rect.bottom) // tile_size) for x in tile_range_x)
+        touching["bottom"] = any(self._hitbox_at(x, (rect.bottom) // tile_size)
+                                 for x in tile_range_x)
 
         return touching
+
+# ----- Type Aliases ----- #
+ParallaxData = FixedParallaxData | TilemapParallaxData

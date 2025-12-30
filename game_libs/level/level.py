@@ -14,14 +14,15 @@ ________________________________________________________________________________
 # import external modules
 from __future__ import annotations
 from dataclasses import dataclass
-
-# import needed headers
-from ..header import Engine
+from typing import TYPE_CHECKING
 
 # import submodules of the package
 from .entity import EntityData, Player
 from .tilemap import TilemapData
 from .components import Camera
+
+if TYPE_CHECKING:
+    from ..ecs_core.engine import Engine
 
 
 # ----- Level ----- #
