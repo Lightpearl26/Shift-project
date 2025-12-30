@@ -13,7 +13,7 @@ ________________________________________________________________________________
 
 # import components
 from __future__ import annotations
-from pygame import Surface, Vector2
+from pygame import Surface
 
 # import game components
 from ..level.level import Level

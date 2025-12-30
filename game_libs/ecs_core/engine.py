@@ -13,11 +13,10 @@ ________________________________________________________________________________
 
 # import external modules
 from __future__ import annotations
-from typing import Iterator, Callable, Optional
+from typing import Iterator, Callable, Optional, TYPE_CHECKING, TypeAlias
 
-# import header components
+# import header
 from ..header import ComponentTypes as C
-from ..header import Level, Engine as engine_protocol
 
 # import config
 from .. import config
@@ -31,8 +30,11 @@ from . import components
 # import systems from ecs_core
 from . import systems
 
-# create types missing
-SystemFunc = Callable[[engine_protocol, Level, float], None]
+if TYPE_CHECKING:
+    from ..level.level import Level
+
+# ----- Type Aliases ----- #
+SystemFunc: TypeAlias = Callable[..., None]
 
 
 # ----- Engine ----- #

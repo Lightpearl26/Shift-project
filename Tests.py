@@ -8,7 +8,6 @@ from game_libs.assets_registry import AssetsRegistry
 from game_libs import config, logger
 from game_libs.rendering.level_renderer import LevelRenderer
 from game_libs.level.components import Camera
-from game_libs.py_udp import P2PClient, decode, encode
 
 # initialize pygame display
 logger.debug("Initializing Pygame")
@@ -23,10 +22,6 @@ engine = Engine()
 level = AssetsRegistry.load_level("Tests", engine)
 last_pos = pygame.Vector2(engine.get_component(level.player.eid, "Hitbox").rect.topleft)
 last_camera_pos = pygame.Vector2(level.camera.pos)
-
-# Initialize UDP server (for future use)
-udp_client = P2PClient()
-
 
 # Main loop
 running = True
@@ -45,14 +40,7 @@ while running:
     fixed_timer += dt
     while fixed_timer >= fixed_dt:
         fixed_timer -= fixed_dt
-        data: bytes | None = udp_client.receive()
-        if data is not None:
-            key_state = data
-        else:
-            key_state = pygame.key.ScancodeWrapper((False,) * 512)
-        engine.get_component(1, "Controlled").key_state = key_state
         engine.get_component(level.player.eid, "Controlled").key_state = pygame.key.get_pressed()
-        udp_client.send(engine.get_component(level.player.eid, "Controlled").key_state)
         engine.update(level, fixed_dt)
 
     for event in pygame.event.get():
@@ -92,7 +80,7 @@ while running:
     # Render FPS
     if INFO_MENU:
         # FPS
-        fps = clock.get_fps()
+        fps = 1/dt if dt > 0 else 0
         font = pygame.font.SysFont("Arial", 24)
         fps_text = font.render(f"FPS: {fps:.0f}", True, (255, 255, 255))
         SCREEN.blit(fps_text, (10, 10))

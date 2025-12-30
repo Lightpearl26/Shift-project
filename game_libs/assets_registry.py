@@ -12,10 +12,15 @@ ________________________________________________________________________________
 """
 
 # import external modules
+from __future__ import annotations
+from typing import TYPE_CHECKING
 from os import listdir
 from os.path import join, splitext
 from json import load
 from pygame import Surface, Rect, Vector2
+
+# import header
+from .header import ComponentTypes as C
 
 # import tilemap components
 from .level.tilemap import (
@@ -23,14 +28,12 @@ from .level.tilemap import (
     TilesetData,
     TilemapData,
     TilemapParallaxData,
-    FixedParallaxData
+    FixedParallaxData,
+    ParallaxData
 )
 
 # import entity components
 from .level.entity import EntityBlueprint, EntityData, Player
-
-# import needed protocols
-from .header import ParallaxData, Engine, ComponentTypes as C
 
 # import level
 from .level.level import Level
@@ -46,6 +49,9 @@ from . import config
 
 # import logger
 from . import logger
+
+if TYPE_CHECKING:
+    from .ecs_core.engine import Engine
 
 
 # ----- AssetsRegistry ----- #
@@ -69,7 +75,7 @@ class AssetsRegistry:
         cls._parallax.clear()
         cls._levels.clear()
         cls._blueprints.clear()
-        
+
         logger.debug("AssetsRegistry cache cleared")
 
     @classmethod
@@ -171,7 +177,7 @@ class AssetsRegistry:
                 parallax
             )
             logger.info(f"Tilemap [{tilemap_name}] loaded and cached")
-        
+
         logger.debug(f"Tilemap [{tilemap_name}] loaded successfully")
         return cls._tilemaps[tilemap_name]
 
@@ -232,7 +238,7 @@ class AssetsRegistry:
         for entity_data in data.get("entities", []):
             entity = cls.new_entity(engine, entity_data)
             level.entities.append(entity)
-        
+
         logger.debug(f"Level [{level_name}] loaded successfully")
         return level
 

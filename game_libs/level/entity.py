@@ -12,19 +12,17 @@ ________________________________________________________________________________
 """
 
 # import external modules
+from __future__ import annotations
+from typing import TYPE_CHECKING
 from dataclasses import dataclass
 from pygame import Surface
 
-# import needed header
-from ..header import (
-    Engine,
-    Velocity,
-    State,
-    Jump,
-    Walk,
-    XDirection,
-    ComponentTypes as C
-)
+# import header
+from ..header import ComponentTypes as C
+
+if TYPE_CHECKING:
+    from ..ecs_core.engine import Engine
+    from ..ecs_core.components import Velocity, State, Jump, Walk, XDirection
 
 
 # ----- EntityBlueprint ----- #

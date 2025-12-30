@@ -14,36 +14,39 @@ ________________________________________________________________________________
 
 # import external modules
 from __future__ import annotations
+from typing import TYPE_CHECKING
 from math import cos, sin, radians
 from pygame import Vector2, Rect
 from pygame import K_SPACE, K_RIGHT, K_LEFT, K_d, K_q, K_a, K_LCTRL
-
-# import needed protocols of the package
-from ..header import (
-    ComponentTypes as C,
-    Level,
-    Engine,
-    XDirection,
-    Velocity,
-    State,
-    Jump,
-    Walk,
-    Logic,
-    Mass,
-    Properties,
-    NextPosition,
-    Hitbox,
-    MapCollision,
-    WallSticking,
-    CameraFollow,
-    Controlled
-)
 
 # import config
 from .. import config
 
 # import Intflags from components
 from .components import EntityState, EntityProperty
+
+# import header
+from ..header import ComponentTypes as C
+
+if TYPE_CHECKING:
+    from ..level.level import Level
+    from ..ecs_core.engine import Engine
+    from ..ecs_core.components import (
+        XDirection,
+        Velocity,
+        State,
+        Jump,
+        Walk,
+        Logic,
+        Mass,
+        Properties,
+        NextPosition,
+        Hitbox,
+        MapCollision,
+        WallSticking,
+        CameraFollow,
+        Controlled
+    )
 
 
 # ----- TileAnimationSystem ----- #

@@ -12,14 +12,18 @@ ________________________________________________________________________________
 """
 
 # import external modules
+from __future__ import annotations
 from pygame import Surface, Rect, Vector2, SRCALPHA
 
 # import tilemap components
-from ..level.tilemap import TileData, FixedParallaxData, TilemapParallaxData, TilemapData
+from ..level.tilemap import (
+    TileData,
+    FixedParallaxData,
+    TilemapParallaxData,
+    TilemapData,
+    ParallaxData
+)
 from ..level.components import Camera
-
-# import header component
-from ..header import ParallaxData
 
 # ----- Constants of the module ----- #
 AUTOTILEBITMASKS: dict[str, dict[str, list[tuple[int, int]]]] = {

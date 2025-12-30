@@ -16,16 +16,14 @@ ________________________________________________________________________________
 # import external modules
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Callable, Any
+from typing import Callable, Any, TYPE_CHECKING
 from operator import eq, ne, lt, le, gt, ge
 from pygame import Vector2
 
-
-# import needed protocols of the package
-from ..header import Engine, Level, Hitbox
-
-# import logger
-from .. import logger
+if TYPE_CHECKING:
+    from ..ecs_core.engine import Engine
+    from ..level.level import Level
+    from ..ecs_core.components import Hitbox
 
 
 # ----- AI registry ----- #

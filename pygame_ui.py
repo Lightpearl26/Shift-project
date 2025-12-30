@@ -35,7 +35,14 @@ from pygame import (
     SRCALPHA,
     KMOD_SHIFT,
     KMOD_RSHIFT,
-    QUIT
+    QUIT,
+    KMOD_CTRL,
+    K_c,
+    K_v,
+    K_x,
+    K_a,
+    SCRAP_TEXT,
+    scrap
 )
 from pygame.font import (
     Font,
@@ -632,8 +639,9 @@ class Frame(UIWidget):
 
     @size.setter
     def size(self, size: tuple[int, int]) -> None:
-        self._size = size
-        self.surface = Surface(size, SRCALPHA)
+        if size != self._size:
+            self._size = size
+            self.surface = Surface(size, SRCALPHA)
 
 
 # ====================================================== #
@@ -726,6 +734,284 @@ class DropdownList(Frame):
         if self.hover:
             self.draw_scrollbars(surface)
         draw_rect(surface, (0, 0, 0), self.rect.inflate(2, 2), 2)
+
+
+class TextArea(Frame):
+    """
+    Multi-line text area with optional editing capabilities.
+    """
+    def __init__(self: TextArea,
+                 parent: UIWidget,
+                 rect: Rect,
+                 text: str="",
+                 width: Optional[int]=None,
+                 height: Optional[int]=None,
+                 padding: int=50) -> None:
+        Frame.__init__(self, parent, rect, width, height)
+        self.lines: list[str] = text.splitlines() or [""]
+        self.editable: bool = True
+        self.selection: tuple[int, int] = (0, 0)
+        self.cursor_pos: int = len(text)
+        self.padding: int = padding
+        self._dragging: bool = False
+        self._dragged_start_pos: Optional[int] = None
+
+        # setup frame internal size
+        height = len(self.lines) * self.app.theme.font.get_linesize()
+        width = max(self.app.theme.font.size(line)[0] for line in self.lines) if self.lines else 0
+        self.size = (max(width+self.padding, self.rect.width), max(height, self.rect.height))
+
+    # useful methods
+    def get_cursor_pos(self: TextArea, pos: Vector2) -> int:
+        """
+        Get the cursor position in text from pixel position.
+        """
+        line_height = self.app.theme.font.get_linesize()
+        line_index = min(len(self.lines)-1, max(0, (pos.y + self.scroll.y) // line_height))
+        line_text = self.lines[int(line_index)]
+        x_offset = pos.x + self.scroll.x
+        char_index = 0
+        for i in range(len(line_text)+1):
+            if x_offset < self.app.theme.font.size(line_text[:i])[0]+self.padding:
+                break
+            char_index = i
+            
+        # Calculate overall cursor position
+        cursor_pos = sum(len(self.lines[i]) + 1 for i in range(int(line_index))) + char_index
+        return cursor_pos
+
+    # handle events
+    def handle_event(self: TextArea, event: Event) -> bool:
+        if not self.displayed:
+            return False
+
+        if self.editable:
+            if event.type == KEYDOWN and self.focus:
+                if event.key == K_BACKSPACE:
+                    if self.selection != (0, 0):
+                        start, end = self.selection
+                        self.text = self.text[:start] + self.text[end:]
+                        self.cursor_pos = start
+                        self.selection = (0, 0)
+                        return True
+                    if self.cursor_pos > 0:
+                        self.text = self.text[:self.cursor_pos-1] + self.text[self.cursor_pos:]
+                        self.cursor_pos -= 1
+                        self.selection = (0, 0)
+                        return True
+                elif event.key == K_DELETE:
+                    if self.selection != (0, 0):
+                        start, end = self.selection
+                        self.text = self.text[:start] + self.text[end:]
+                        self.cursor_pos = start
+                        self.selection = (0, 0)
+                        return True
+                    if self.cursor_pos < len(self.text):
+                        self.text = self.text[:self.cursor_pos] + self.text[self.cursor_pos+1:]
+                        self.selection = (0, 0)
+                        return True
+                elif event.key == K_LEFT:
+                    if self.selection != (0, 0):
+                        start, end = self.selection
+                        self.cursor_pos = start
+                        self.selection = (0, 0)
+                        return True
+                    if self.cursor_pos > 0:
+                        self.cursor_pos -= 1
+                        self.selection = (0, 0)
+                        return True
+                elif event.key == K_RIGHT:
+                    if self.selection != (0, 0):
+                        start, end = self.selection
+                        self.cursor_pos = end
+                        self.selection = (0, 0)
+                        return True
+                    if self.cursor_pos < len(self.text):
+                        self.cursor_pos += 1
+                        self.selection = (0, 0)
+                        return True
+                elif event.unicode and event.unicode.isprintable():
+                    if self.selection != (0, 0):
+                        start, end = self.selection
+                        self.text = self.text[:start] + event.unicode + self.text[end:]
+                        self.cursor_pos = start + 1
+                        self.selection = (0, 0)
+                        return True
+                    self.text = (self.text[:self.cursor_pos] +
+                                 event.unicode +
+                                 self.text[self.cursor_pos:])
+                    self.cursor_pos += 1
+                    self.selection = (0, 0)
+                    return True
+                elif event.key == K_RETURN:
+                    if self.selection != (0, 0):
+                        start, end = self.selection
+                        self.text = self.text[:start] + "\n" + self.text[end:]
+                        self.cursor_pos = start + 1
+                        self.selection = (0, 0)
+                        return True
+                    self.text = (self.text[:self.cursor_pos] +
+                                 "\n" +
+                                 self.text[self.cursor_pos:])
+                    self.cursor_pos += 1
+                    self.selection = (0, 0)
+                    return True
+                elif event.key == K_v and KMOD_CTRL & get_mods():
+                    if scrap.get(SCRAP_TEXT):
+                        paste_text = scrap.get(SCRAP_TEXT).decode("utf-8")
+                        paste_text = paste_text.replace('\x00', '').replace('\0', '')
+                        if self.selection != (0, 0):
+                            start, end = self.selection
+                            self.text = self.text[:start] + paste_text + self.text[end:]
+                            self.cursor_pos = start + len(paste_text)
+                            self.selection = (0, 0)
+                            return True
+                        self.text = (self.text[:self.cursor_pos] +
+                                     paste_text +
+                                     self.text[self.cursor_pos:])
+                        self.cursor_pos += len(paste_text)
+                        self.selection = (0, 0)
+                        return True
+                elif event.key == K_x and KMOD_CTRL & get_mods():
+                    selected_text = self.selected_text
+                    if selected_text:
+                        scrap.put(SCRAP_TEXT, selected_text.encode("utf-8"))
+                        start, end = self.selection
+                        self.text = self.text[:start] + self.text[end:]
+                        self.cursor_pos = start
+                        self.selection = (0, 0)
+                        return True
+
+        if event.type == KEYDOWN and self.focus:
+            if event.key == K_a and KMOD_CTRL & get_mods():
+                self.selection = (0, len(self.text))
+                self.cursor_pos = len(self.text)
+                return True
+            if event.key == K_c and KMOD_CTRL & get_mods():
+                selected_text = self.selected_text
+                if selected_text:
+                    scrap.put(SCRAP_TEXT, selected_text.encode("utf-8"))
+                    return True
+
+        if event.type == MOUSEBUTTONDOWN and event.button == 1 and self.focus:
+            local_pos = Vector2(event.pos) - Vector2(self.global_rect.topleft)
+            self.cursor_pos = self.get_cursor_pos(local_pos)
+            self.selection = (0, 0)
+            self._dragging = True
+            self._dragged_start_pos = self.cursor_pos
+            return True
+
+        if event.type == MOUSEMOTION and self._dragging:
+            local_pos = Vector2(event.pos) - Vector2(self.global_rect.topleft)
+            current_pos = self.get_cursor_pos(local_pos)
+            start = min(self._dragged_start_pos, current_pos)
+            end = max(self._dragged_start_pos, current_pos)
+            self.selection = (start, end)
+            self.cursor_pos = current_pos
+            return True
+
+        if event.type == MOUSEBUTTONUP and event.button == 1 and self._dragging:
+            self._dragging = False
+            self._dragged_start_pos = None
+            return True
+
+        return Frame.handle_event(self, event)
+
+    # rendering
+    def render(self: TextArea, surface: Surface) -> None:
+        if not self.displayed:
+            return
+
+        self.surface.fill(self.app.theme.colors["bg"])
+
+        # draw text lines
+        line_height = self.app.theme.font.get_linesize()
+        y_offset = 0
+        for i, line in enumerate(self.lines):
+            for j, char in enumerate(line):
+                # detect if part of selection
+                char_index = sum(len(self.lines[i]) + 1 for i in range(i)) + j
+                if self.selection[0] <= char_index < self.selection[1]:
+                    # is part of selection
+                    char_width = self.app.theme.font.size(char)[0]
+                    draw_rect(self.surface, self.app.theme.colors["hover"],
+                              (self.app.theme.font.size(line[:j])[0]+self.padding,
+                               y_offset,
+                               char_width,
+                               line_height))
+                    char_surf = self.app.theme.font.render(char, True, self.app.theme.colors["bg"])
+                else:
+                    #isn't part of selection
+                    char_surf = self.app.theme.font.render(char, True, self.app.theme.colors["text"])
+                self.surface.blit(char_surf,
+                                  (self.app.theme.font.size(line[:j])[0]+self.padding,
+                                   y_offset))
+            y_offset += line_height
+
+        # render cursor
+        if self.focus:
+            cursor_line = 0
+            cursor_col = 0
+            acc_len = 0
+            for i, line in enumerate(self.lines):
+                if acc_len + len(line) >= self.cursor_pos:
+                    cursor_line = i
+                    cursor_col = self.cursor_pos - acc_len
+                    break
+                acc_len += len(line) + 1  # +1 for newline
+            cursor_x = self.app.theme.font.size(self.lines[cursor_line][:cursor_col])[0]+self.padding
+            cursor_y = cursor_line * line_height
+            draw_line(self.surface, self.app.theme.colors["text"],
+                      (cursor_x, cursor_y), (cursor_x, cursor_y + line_height))
+            
+        # render line numeration
+        numeration_surface = Surface((self.padding, self.size[1]), SRCALPHA)
+        numeration_surface.fill(self.app.theme.colors["bg"])
+        for i in range(len(self.lines)):
+            line_num_surf = self.app.theme.font.render(str(i+1), True, self.app.theme.colors["hover"])
+            line_num_rect = line_num_surf.get_rect(topright=(self.padding-10, i * line_height))
+            numeration_surface.blit(line_num_surf, line_num_rect)
+        render_rect = Rect(0, self.scroll.y, self.padding, self.rect.height)
+        
+            
+        # blit scrollable content
+        surface_rect = Rect(self.scroll, self.rect.size)
+        surface.blit(self.surface.subsurface(surface_rect), self.rect)
+        surface.blit(numeration_surface.subsurface(render_rect), (self.rect.left, self.rect.top))
+        
+        # draw scrollbars and border
+        self.draw_scrollbars(surface)
+        border_color = self.app.theme.colors["accent"] if self.focus else self.app.theme.colors["hover"]
+        draw_rect(surface, border_color, self.rect.inflate(2, 2), 2)
+
+    @property
+    def selected_text(self: TextArea) -> str:
+        """
+        Get the currently selected text.
+        """
+        start, end = self.selection
+        return self.text[start:end]
+
+    @property
+    def text(self: TextArea) -> str:
+        """
+        Get the full text content.
+        """
+        return "\n".join(self.lines)
+
+    @text.setter
+    def text(self: TextArea, text: str) -> None:
+        """
+        Set the full text content.
+        """
+        self.lines = text.splitlines() or [""]
+        if text.endswith("\n"):
+            self.lines.append("")
+
+        # setup frame internal size
+        height = len(self.lines) * self.app.theme.font.get_linesize()
+        width = max(self.app.theme.font.size(line)[0] for line in self.lines) if self.lines else 0
+        self.size = (max(width+self.padding, self.rect.width), max(height, self.rect.height))
 
 
 class ListView(Frame):
