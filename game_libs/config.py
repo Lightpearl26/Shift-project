@@ -13,7 +13,7 @@ ________________________________________________________________________________
 
 # import external module
 from os.path import join
-from pygame import FULLSCREEN
+from pygame import FULLSCREEN, SCALED
 from pygame import (
     K_z,
     K_UP,
@@ -32,27 +32,27 @@ from pygame import (
 
 # ----- System constants ----- #
 LOG_DEBUG: bool = False
-SCREEN_SIZE: tuple[int, int] = (1920, 1080) # px²
-SCREEN_FLAGS: int = FULLSCREEN
+SCREEN_SIZE: tuple[int, int] = (960, 540) # px²
+SCREEN_FLAGS: int = FULLSCREEN | SCALED
 TPS_MAX: int = 20 # max ticks per second
 UDP_LISTENING_PORT: int = 2802
 SERVER_LOG_FOLDER: str = join("cache", "server", "logs")
 PLAYER_TIMEOUT: float = 60.0 # seconds
 
 # ----- Jumping constants ----- #
-JUMP_STRENGTH: float = 2.8e5 # N
+JUMP_STRENGTH: float = 2.3e5 # N
 JUMP_DURATION: float = 0.2 # s
 
 # ----- Wallsticking constants ----- #
 WALLSTICK_DURATION: float = 0.5 # s
 
 # ----- Movement constants ----- #
-WALK_SPEED: float = 1500.0 # px/s
-RUN_SPEED: float = 2000.0 # px/s
+WALK_SPEED: float = 500.0 # px/s
+RUN_SPEED: float = 1000.0 # px/s
 
 # ----- Camera constants ----- #
 CAMERA_DAMPING: float = 8.0
-CAMERA_SIZE: tuple[int, int] = (1920, 1080) # px²
+CAMERA_SIZE: tuple[int, int] = SCREEN_SIZE # px²
 
 # ----- Physics constants ----- #
 DRAG_BASE: float = 0.005 # kg/s
@@ -64,8 +64,10 @@ TILESET_DATA_FOLDER: str = join("assets", "tilesets", "data")
 TILEMAP_FOLDER: str = join("assets", "tilemaps")
 BLUEPRINTS_FOLDER: str = join("assets", "blueprints")
 LEVELS_FOLDER: str = join("assets", "levels")
-SOUNDS_FOLDER: str = join("assets", "audio", "sounds")
-MUSICS_FOLDER: str = join("assets", "audio", "musics")
+BGS_FOLDER: str = join("assets", "audio", "bgs")
+BGM_FOLDER: str = join("assets", "audio", "bgm")
+ME_FOLDER: str = join("assets", "audio", "me")
+SE_FOLDER: str = join("assets", "audio", "se")
 VIDEOS_FOLDER: str = join("assets", "video")
 FONT_FOLDER: str = join("assets", "fonts")
 

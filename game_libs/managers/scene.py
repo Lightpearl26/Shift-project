@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from enum import Enum, auto
+from .. import logger
 
 if TYPE_CHECKING:
     from pygame import Surface
@@ -56,6 +57,7 @@ class SceneManager:
                 scene_class = getattr(scenes, attr)
                 scene_instance = scene_class()
                 cls.add_scene(scene_instance)
+        logger.info(f"[SceneManager] initialized with {len(cls._scenes)} scenes.")
 
     @classmethod
     def add_scene(cls, scene: BaseScene) -> None:
@@ -67,6 +69,7 @@ class SceneManager:
         """
         cls._scenes[scene.name] = scene
         scene.scene_manager = cls
+        logger.info(f"[SceneManager] added scene '{scene.name}'.")
 
     @classmethod
     def get_scene(cls, scene_name: str) -> BaseScene:
@@ -80,7 +83,8 @@ class SceneManager:
             The requested scene instance
         """
         if scene_name not in cls._scenes:
-            raise ValueError(f"Scene '{scene_name}' not found in SceneManager")
+            logger.error(f"[SceneManager] Scene '{scene_name}' not found.")
+            raise KeyError(f"Scene '{scene_name}' not found.")
         return cls._scenes[scene_name]
 
     @classmethod
@@ -92,7 +96,8 @@ class SceneManager:
             scene_name: Name of the scene to activate
         """
         if scene_name not in cls._scenes:
-            raise ValueError(f"Scene '{scene_name}' not found in SceneManager")
+            logger.error(f"[SceneManager] Scene '{scene_name}' not found.")
+            return
 
         cls._current_scene = scene_name
         # Initialize the scene when it becomes active
@@ -115,15 +120,21 @@ class SceneManager:
             transition_in: Optional transition into new scene
         """
         if scene_name not in cls._scenes:
-            raise ValueError(f"Scene '{scene_name}' not found in SceneManager")
+            logger.error(f"[SceneManager] Scene '{scene_name}' not found.")
+            return
 
         cls._next_scene = scene_name
         cls._transition_out = transition_out
         cls._transition_in = transition_in
 
+        logger.info(
+            f"[SceneManager] changing scene '{cls._current_scene}' to scene '{scene_name}'."
+        )
+
         if transition_out is not None and cls._current_scene is not None:
             # Start transition out
             cls._state = SceneState.TRANSITIONING_OUT
+            logger.info("[SceneManager] starting transition out.")
             cls._transition_out.play()
         else:
             # No transition, switch immediately
@@ -163,6 +174,7 @@ class SceneManager:
                     # Transition in finished, return to normal
                     cls._state = SceneState.NORMAL
                     cls._transition_in = None
+        logger.debug(f"[SceneManager] update dt={dt:.4f} in state {cls._state.name}.")
 
     @classmethod
     def render(cls, surface: Surface) -> None:
@@ -185,9 +197,10 @@ class SceneManager:
         elif cls._state == SceneState.TRANSITIONING_IN:
             if cls._transition_in is not None:
                 cls._transition_in.render(surface)
+        logger.debug(f"[SceneManager] render in state {cls._state.name}.")
 
     @classmethod
-    def handle_events(cls, key_events: dict[str, bool]) -> None:
+    def handle_events(cls, key_events: dict[str, dict[str, bool]]) -> None:
         """
         Handle input events for the current scene.
         
@@ -211,10 +224,12 @@ class SceneManager:
         # Initialize/reset the newly activated scene
         if cls._current_scene is not None:
             cls._scenes[cls._current_scene].init()
+            logger.debug(f"[SceneManager] switched to scene '{cls._current_scene}'.")
 
         # Start transition in if specified
         if cls._transition_in is not None and cls._current_scene is not None:
             cls._state = SceneState.TRANSITIONING_IN
+            logger.info("[SceneManager] starting transition in.")
             cls._transition_in.play()
         else:
             # No transition in, return to normal immediately

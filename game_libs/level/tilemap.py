@@ -176,5 +176,6 @@ class TilemapData:
 
         return touching
 
+
 # ----- Type Aliases ----- #
 ParallaxData = FixedParallaxData | TilemapParallaxData

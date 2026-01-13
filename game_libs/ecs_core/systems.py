@@ -17,7 +17,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from math import cos, sin, radians
 from pygame import Vector2, Rect
-from pygame import K_SPACE, K_RIGHT, K_LEFT, K_d, K_q, K_a, K_LCTRL
 
 # import config
 from .. import config
@@ -27,6 +26,7 @@ from .components import EntityState, EntityProperty
 
 # import header
 from ..header import ComponentTypes as C
+from ..managers.event import KeyState
 
 if TYPE_CHECKING:
     from ..level.level import Level
@@ -82,7 +82,7 @@ def player_control_system(engine: Engine, level: Level, dt: float) -> None:
         controlled: Controlled = engine.get_component(eid, C.CONTROLLED)
         keys = controlled.key_state
         if state.has_flag("CAN_JUMP"):
-            if keys[K_SPACE]:
+            if keys.get("JUMP") == KeyState.PRESSED:
                 if state.has_flag("ON_GROUND"):
                     jump.time_left = jump.duration
                     jump.direction = 90.0
@@ -97,19 +97,19 @@ def player_control_system(engine: Engine, level: Level, dt: float) -> None:
             else:
                 jump.time_left = 0.0
 
-        if state.has_flag("JUMPING") and not keys[K_SPACE]:
+        if state.has_flag("JUMPING") and not keys.get("JUMP") in (KeyState.HELD, KeyState.PRESSED):
             jump.time_left = 0.0
 
         if state.has_flag("CAN_MOVE"):
-            if keys[K_RIGHT] or keys[K_d]:
+            if keys.get("RIGHT") == KeyState.HELD:
                 xdir.value = 1.0
-                running = keys[K_LCTRL] or keys[K_a]
+                running = keys.get("SPRINT") == KeyState.HELD
                 state.add_flag(EntityState.RUNNING if running else EntityState.WALKING)
                 state.remove_flag(EntityState.WALKING if running else EntityState.RUNNING)
 
-            elif keys[K_LEFT] or keys[K_q]:
+            elif keys.get("LEFT") == KeyState.HELD:
                 xdir.value = -1.0
-                running = keys[K_LCTRL] or keys[K_a]
+                running = keys.get("SPRINT") == KeyState.HELD
                 state.add_flag(EntityState.RUNNING if running else EntityState.WALKING)
                 state.remove_flag(EntityState.WALKING if running else EntityState.RUNNING)
 

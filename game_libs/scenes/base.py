@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pygame import Surface
     from ..managers.scene import SceneManager
+    from ..managers.event import KeyState
 
 
 class BaseScene:
@@ -44,7 +45,7 @@ class BaseScene:
         """
         raise NotImplementedError("init method must be implemented by subclasses")
 
-    def handle_events(self, key_events: dict[str, bool]) -> None:
+    def handle_events(self, key_events: dict[str, KeyState]) -> None:
         """
         Handle input events for the scene.
         

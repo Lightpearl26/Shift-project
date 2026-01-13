@@ -1,13 +1,15 @@
 #!venv/Scripts python
 #-*- coding:utf-8 -*-
 
-# Import components of the game
+# import components of the game
 import pygame
+from os.path import join
 from game_libs.ecs_core.engine import Engine
 from game_libs.assets_registry import AssetsRegistry
+from game_libs.assets_cache import AssetsCache
 from game_libs import config, logger
 from game_libs.rendering.level_renderer import LevelRenderer
-from game_libs.level.components import Camera
+from game_libs.managers.event import EventManager
 
 # initialize pygame display
 logger.debug("Initializing Pygame")
@@ -20,8 +22,7 @@ SCREEN = pygame.display.set_mode(config.SCREEN_SIZE, config.SCREEN_FLAGS)
 logger.info("Creating game engine and loading level")
 engine = Engine()
 level = AssetsRegistry.load_level("Tests", engine)
-last_pos = pygame.Vector2(engine.get_component(level.player.eid, "Hitbox").rect.topleft)
-last_camera_pos = pygame.Vector2(level.camera.pos)
+EventManager.update(0.0)
 
 # Main loop
 running = True
@@ -39,17 +40,18 @@ while running:
     # Update engine
     fixed_timer += dt
     while fixed_timer >= fixed_dt:
+        EventManager.update(fixed_dt)
         fixed_timer -= fixed_dt
-        engine.get_component(level.player.eid, "Controlled").key_state = pygame.key.get_pressed()
+        engine.get_component(level.player.eid, "Controlled").key_state = EventManager.get_keys()
         engine.update(level, fixed_dt)
+        LevelRenderer.update(level)
 
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+    if pygame.event.peek(pygame.QUIT):
+        running = False
 
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_F3:
-                INFO_MENU = not INFO_MENU
+    if events := pygame.event.get(pygame.KEYDOWN):
+        if any(event.key == pygame.K_F3 for event in events):
+            INFO_MENU = not INFO_MENU
 
     # Clear screen
     SCREEN.fill((0, 0, 0))
@@ -58,55 +60,36 @@ while running:
     alpha = min(1.0, max(0.0, fixed_timer / fixed_dt))
     LevelRenderer.render(SCREEN, level, alpha)
 
-    # Render player
-    player_hitbox = engine.get_component(level.player.eid, "Hitbox")
-    
-    prev_pos = last_pos
-    curr_pos = pygame.Vector2(player_hitbox.rect.topleft)
-    interp_pos = prev_pos.lerp(curr_pos, alpha)
-    last_pos = pygame.Vector2(int(interp_pos.x), int(interp_pos.y))
-    
-    prev_pos = last_camera_pos or pygame.Vector2(level.camera.pos)
-    curr_pos = pygame.Vector2(level.camera.pos)
-    interp_camera_pos = prev_pos.lerp(curr_pos, alpha)
-    interp_camera = Camera(interp_camera_pos, level.camera.size)
-    last_camera_pos = pygame.Vector2(int(interp_camera_pos.x), int(interp_camera_pos.y))
-    
-    # Position réelle du joueur (interpolée)
-    player_screen_pos = interp_pos - pygame.Vector2(interp_camera.rect.topleft)
-    player_hitbox_rect = pygame.Rect(player_screen_pos, player_hitbox.size)
-    pygame.draw.rect(SCREEN, (0, 255, 0), player_hitbox_rect)
-
     # Render FPS
     if INFO_MENU:
         # FPS
         fps = 1/dt if dt > 0 else 0
-        font = pygame.font.SysFont("Arial", 24)
+        font = AssetsCache.load_font(join(config.FONT_FOLDER, "Pixel Game.otf"), 20)
         fps_text = font.render(f"FPS: {fps:.0f}", True, (255, 255, 255))
-        SCREEN.blit(fps_text, (10, 10))
+        SCREEN.blit(fps_text, (5, 5))
         # Player state
         player_state = engine.get_component(level.player.eid, "State")
         ## Can jump
         jump_text = font.render(f"Can jump: {player_state.has_flag('CAN_JUMP')}", True, (255, 255, 255))
-        SCREEN.blit(jump_text, (10, 40))
+        SCREEN.blit(jump_text, (5, 30))
         ## On ground
         on_ground_text = font.render(f"On ground: {player_state.has_flag('ON_GROUND')}", True, (255, 255, 255))
-        SCREEN.blit(on_ground_text, (10, 70))
+        SCREEN.blit(on_ground_text, (5, 55))
         ## Velocity
         player_velocity = engine.get_component(level.player.eid, "Velocity")
         velocity_text = font.render(f"Velocity: ({player_velocity.x:.2f}, {player_velocity.y:.2f}) px/s", True, (255, 255, 255))
-        SCREEN.blit(velocity_text, (10, 100))
+        SCREEN.blit(velocity_text, (5, 80))
         ## Position
         player_hitbox = engine.get_component(level.player.eid, "Hitbox")
         position_text = font.render(f"Position: ({player_hitbox.rect.x}, {player_hitbox.rect.y}) px", True, (255, 255, 255))
-        SCREEN.blit(position_text, (10, 130))
+        SCREEN.blit(position_text, (5, 105))
         ## Jumping
         player_jump = engine.get_component(level.player.eid, "Jump")
         jump_text = font.render(f"Jumping: {player_state.has_flag('JUMPING')}, Time left: {player_jump.time_left:.2f} s", True, (255, 255, 255))
-        SCREEN.blit(jump_text, (10, 160))
+        SCREEN.blit(jump_text, (5, 130))
         ## Wallsticking
         wallstick_text = font.render(f"Wallsticking: {player_state.has_flag('WALL_STICKING')}", True, (255, 255, 255))
-        SCREEN.blit(wallstick_text, (10, 190))
+        SCREEN.blit(wallstick_text, (5, 155))
         ## Camera deadzone
         camera_infos = engine.get_component(level.player.eid, "CameraFollow")
         rect = pygame.Rect(camera_infos.deadzone)
@@ -114,13 +97,7 @@ while running:
         pygame.draw.rect(SCREEN, (0, 0, 255), rect, 1)
         ## Camera position
         camera_text = font.render(f"Camera Pos: ({int(level.camera.pos.x)}, {int(level.camera.pos.y)}) px", True, (255, 255, 255))
-        SCREEN.blit(camera_text, (10, 220))
-        ## Camera interpolated position
-        interp_camera_text = font.render(f"Interp Camera Pos: ({int(interp_camera.pos.x)}, {int(interp_camera.pos.y)}) px", True, (255, 255, 255))
-        SCREEN.blit(interp_camera_text, (10, 250))
-        ## player interpolated position
-        interp_player_text = font.render(f"Interp Player Pos: ({int(interp_pos.x)}, {int(interp_pos.y)}) px", True, (255, 255, 255))
-        SCREEN.blit(interp_player_text, (10, 280))
+        SCREEN.blit(camera_text, (5, 180))
 
     # Update display
     pygame.display.flip()

@@ -17,7 +17,6 @@ from typing import Callable
 from enum import IntFlag, auto
 from dataclasses import dataclass
 from pygame import Rect, Vector2
-from pygame.key import ScancodeWrapper, get_pressed
 
 # import configs
 from .. import config
@@ -345,11 +344,11 @@ class Controlled(Component):
     """
     Entity is controlled by a player
     """
-    key_state: ScancodeWrapper
+    key_state: dict[str, dict[str, bool]]
 
     @classmethod
     def from_dict(cls, data: dict) -> Controlled:
-        key_state = data.get("key_state", get_pressed())
+        key_state = data.get("key_state", {})
         return cls(key_state)
 
 

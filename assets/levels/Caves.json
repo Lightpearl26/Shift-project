@@ -1,5 +1,5 @@
 {
-    "tilemap": "Caves",
+    "tilemap": "temp",
     "systems": [
         "tile_animation_system",
         "ai_system",

@@ -15,21 +15,18 @@ ________________________________________________________________________________
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from os.path import join
 
 import pygame
 from pygame import Surface
 
 from .base import BaseScene
-from .transitions.fade import FadeOut, FadeIn
+from .transitions.fade import FadeOut, FadeIn, CrossFade
+from .transitions.polygon import LeftHexagonTransition, RightHexagonReverseTransition
 
 from .. import config
 from ..assets_cache import AssetsCache
-
-if TYPE_CHECKING:
-    from ..managers.scene import SceneManager
+from ..managers.event import KeyState
 
 
 class WelcomeScreen(BaseScene):
@@ -59,19 +56,18 @@ class WelcomeScreen(BaseScene):
         self.font_large = AssetsCache.load_font(join(config.FONT_FOLDER, "Pixel Game.otf"), 64)
         self.font_small = AssetsCache.load_font(join(config.FONT_FOLDER, "Pixel Game.otf"), 32)
 
-    def handle_events(self, key_events: dict[str, bool]):
+    def handle_events(self, key_events: dict[str, KeyState]):
         """Handle input events"""
-        if key_events.get("JUMP"):
+        if key_events.get("JUMP") == KeyState.PRESSED:
             # Transition to Title Screen
             if self.scene_manager is not None:
                 title_scene = self.scene_manager.get_scene("Title")
                 if title_scene is not None:
                     self.scene_manager.change_scene(
                         "Title",
-                        transition_out=FadeOut(1000, scene=self),
-                        transition_in=FadeIn(1000, scene=title_scene)
+                        transition_in=CrossFade(1000, self, title_scene)
                     )
-        elif key_events.get("PAUSE"):
+        elif key_events.get("PAUSE") == KeyState.PRESSED:
             # Exit the game
             pygame.event.post(pygame.event.Event(pygame.QUIT))
 
@@ -125,9 +121,37 @@ class TitleScreen(BaseScene):
         self.font_large = AssetsCache.load_font(join(config.FONT_FOLDER, "Pixel Game.otf"), 64)
         self.font_small = AssetsCache.load_font(join(config.FONT_FOLDER, "Pixel Game.otf"), 32)
 
-    def handle_events(self, key_events: dict[str, bool]):
+    def handle_events(self, key_events: dict[str, KeyState]):
         """Handle input events"""
-        #TODO: Implement title screen options handling
+        if key_events.get("UP") == KeyState.PRESSED:
+            self._cursor_pos = (self._cursor_pos - 1) % 4  # Assuming 4 options
+        elif key_events.get("DOWN") == KeyState.PRESSED:
+            self._cursor_pos = (self._cursor_pos + 1) % 4
+        elif key_events.get("JUMP") == KeyState.PRESSED:
+            # Handle selection based on cursor position
+            if self.scene_manager is not None:
+                if self._cursor_pos == 0:
+                    # Start Game
+                    play_scene = self.scene_manager.get_scene("Play")
+                    if play_scene is not None:
+                        self.scene_manager.change_scene(
+                            "Play",
+                            transition_in=CrossFade(1000, self, play_scene)
+                        )
+                elif self._cursor_pos == 1:
+                    # Load Game
+                    pass  # Implement load game logic
+                elif self._cursor_pos == 2:
+                    # Options
+                    options_scene = self.scene_manager.get_scene("Options")
+                    if options_scene is not None:
+                        self.scene_manager.change_scene(
+                            "Options",
+                            transition_in=CrossFade(1000, self, options_scene)
+                        )
+                elif self._cursor_pos == 3:
+                    # Exit
+                    pygame.event.post(pygame.event.Event(pygame.QUIT))
 
     def update(self, dt: float):
         """Update the scene logic"""

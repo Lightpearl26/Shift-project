@@ -13,11 +13,14 @@ ________________________________________________________________________________
 """
 
 from .base import BaseScene
-from .title import WelcomeScreen
+from .title import WelcomeScreen, TitleScreen
+from .options import OptionsScene
 from . import transitions
 
 __all__ = [
     "BaseScene",
     "WelcomeScreen",
+    "TitleScreen",
     "transitions",
+    "OptionsScene",
 ]

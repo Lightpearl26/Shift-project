@@ -15,24 +15,12 @@
     ],
     "player": {
         "Hitbox": {
-            "x": 48,
-            "y": 200
+            "x": 1266,
+            "y": 1010
         }
     },
     "camera": {
         "x": 0.0,
         "y": 0.0
-    },
-    "entities": [
-        {
-            "name": "player",
-            "sprite": "player",
-            "overrides": {
-                "Hitbox": {
-                    "x": 96,
-                    "y": 200
-                }
-            }
-        }
-    ]
+    }
 }

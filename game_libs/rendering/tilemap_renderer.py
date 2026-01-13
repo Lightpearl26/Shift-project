@@ -109,7 +109,6 @@ class TileRenderer:
         cls._cache[key] = surf
         return surf
 
-
 # ----- ParallaxRenderers ----- #
 class FixedParallaxRenderer:
     """
@@ -233,6 +232,7 @@ class TilemapRenderer:
         range_x = range(cam_rect.left//tile_size, min(cam_rect.right//tile_size+1, tilemap.width))
         range_y = range(cam_rect.top//tile_size, min(cam_rect.bottom//tile_size+1, tilemap.height))
 
+        tiles_drawn = 0
         for y in range_y:
             for x in range_x:
                 tid = tilemap.grid[y][x]
@@ -249,6 +249,7 @@ class TilemapRenderer:
 
                 tile_surf = TileRenderer.render(tdata, neighbors)
                 cls._last_surface.blit(tile_surf, pos)
+                tiles_drawn += 1
 
                 # check if tile is animated
                 if len(tdata.graphics) > 1:
@@ -274,30 +275,33 @@ class TilemapRenderer:
             cls._last_surface.blit(tile_surf, pos)
 
     @classmethod
-    def render(cls, tilemap: TilemapData, surface: Surface, camera: Camera, alpha: float) -> None:
+    def render(cls, tilemap: TilemapData, surface: Surface, camera: Camera, camera_interp: Camera) -> None:
         """
-        Render the tilemap on surface
+        Render the tilemap on surface with interpolated camera
         """
-        prev_pos = cls._last_camera_pos or Vector2(camera.pos)
         curr_pos = Vector2(camera.pos)
-        interp_pos = prev_pos.lerp(curr_pos, alpha)
-        interp_camera = Camera(interp_pos, camera.size)
+        interp_pos = Vector2(camera_interp.pos)
         
-        # render parallax
+        # Calculate offset to compensate for interpolation (before rendering)
+        offset = interp_pos - curr_pos
+        # Round offset to integer pixels to avoid jittering
+        offset = (int(offset.x), int(offset.y))
+        
+        # render parallax with interpolated camera
         for parallax in reversed(tilemap.parallax):
-            cls._render_parallax(tilemap, parallax, surface, interp_camera)
+            cls._render_parallax(tilemap, parallax, surface, camera)
             
 
         if not cls._last_surface:
             cls._last_surface = Surface(camera.rect.size, SRCALPHA)
-            cls._redraw_full(tilemap, interp_camera)
-            cls._last_camera_pos = Vector2(int(interp_pos.x), int(interp_pos.y))
 
-        elif not cls._last_camera_pos == interp_pos:
-            cls._redraw_full(tilemap, interp_camera)
-            cls._last_camera_pos = Vector2(int(interp_pos.x), int(interp_pos.y))
+        # Redraw if real camera moved more than 1 pixel (tiles changed)
+        if cls._last_camera_pos is None or (curr_pos - cls._last_camera_pos).length() >= 1.0:
+            cls._redraw_full(tilemap, Camera(curr_pos, camera.size))
+            cls._last_camera_pos = Vector2(curr_pos)
         else:
-            cls._redraw_dirty(tilemap, interp_camera)
-        
+            # Just update animated tiles with real camera position
+            cls._redraw_dirty(tilemap, Camera(curr_pos, camera.size))
 
-        surface.blit(cls._last_surface, (0, 0))
+        # Blit the pre-rendered tilemap with interpolation offset
+        surface.blit(cls._last_surface, offset)
