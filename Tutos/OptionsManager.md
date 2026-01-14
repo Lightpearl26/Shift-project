@@ -19,6 +19,7 @@ Le **OptionsManager** gère toutes les options et paramètres du jeu, avec sauve
 Les options sont sauvegardées dans : `.cache/settings.json`
 
 Structure du fichier :
+
 ```json
 {
   "master_volume": 1.0,
@@ -57,6 +58,7 @@ OptionsManager.init()
 ```
 
 **Ce que fait init() :**
+
 1. Charge le fichier `settings.json` s'il existe
 2. Fusionne avec les valeurs par défaut (pour les nouvelles options)
 3. Applique les paramètres à AudioManager, DisplayManager et EventManager
@@ -88,11 +90,13 @@ OptionsManager.set_se_volume(0.85)      # 85%
 ```
 
 **Note :** Les setters :
+
 - Synchronisent automatiquement avec AudioManager
 - Valident les valeurs (clamp entre 0.0 et 1.0)
 - Ne sauvegardent pas automatiquement (appelez `save()`)
 
 **Exemple d'interface de réglage :**
+
 ```python
 def create_volume_slider(label, get_func, set_func):
     current_volume = get_func()
@@ -154,6 +158,7 @@ OptionsManager.set_fps_cap(0)    # Illimité
 ```
 
 **Valeurs recommandées :**
+
 - `60` : Standard pour la plupart des jeux
 - `144` : Pour les écrans haute fréquence
 - `0` : Illimité (avec VSync pour éviter le tearing)
@@ -193,6 +198,7 @@ def rebind_key(action_name):
 ```
 
 **Actions disponibles :**
+
 - `"UP"`, `"DOWN"`, `"LEFT"`, `"RIGHT"`
 - `"JUMP"`, `"SPRINT"`, `"PAUSE"`
 
@@ -210,6 +216,7 @@ OptionsManager.save()
 ```
 
 **Quand sauvegarder :**
+
 - Après chaque modification d'option par l'utilisateur
 - À la fermeture du jeu
 - Après validation d'un menu d'options
@@ -242,6 +249,7 @@ print(all_options)
 ```
 
 Utile pour :
+
 - Afficher toutes les options dans un menu
 - Exporter les paramètres
 - Debugging
@@ -495,14 +503,14 @@ def reset_to_defaults():
 Activez les logs pour suivre les opérations :
 
 ```python
-import logging
-from game_libs import logger
+from game_libs import config
 
-logger.setLevel(logging.DEBUG)
+config.LOG_DEBUG = True
 ```
 
 Messages typiques :
-```
+
+```text
 [OptionsManager] Initializing...
 [OptionsManager] Options loaded from .cache/settings.json
 [OptionsManager] Synchronized audio settings

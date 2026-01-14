@@ -28,6 +28,7 @@ KeyState.HELD      # Touche maintenue (plusieurs frames)
 ```
 
 **Différence importante :**
+
 - `PRESSED` : Ne se déclenche qu'une seule frame (frame d'appui)
 - `HELD` : Se déclenche tant que la touche reste enfoncée après le premier frame
 - `RELEASED` : Touche non pressée
@@ -39,6 +40,7 @@ KeyState.HELD      # Touche maintenue (plusieurs frames)
 ### Actions disponibles par défaut
 
 Le système définit 7 actions standard :
+
 - `UP` : Déplacement vers le haut
 - `DOWN` : Déplacement vers le bas
 - `LEFT` : Déplacement vers la gauche
@@ -101,6 +103,7 @@ PAUSE = Bouton 5, 1 # Start/Options / B/Cercle
 ### Directions
 
 Le gamepad gère les directions via :
+
 1. **D-Pad** (prioritaire) : Boutons directionnels
 2. **Stick analogique gauche** (fallback) : Avec seuil de détection
 
@@ -289,6 +292,7 @@ EventManager.resume_timer("spawn_enemy")
 ### Exemples d'utilisation des timers
 
 **Cooldown de compétence :**
+
 ```python
 def use_special_attack():
     if not EventManager.has_timer("special_attack_cooldown"):
@@ -304,6 +308,7 @@ def use_special_attack():
 ```
 
 **Spawn d'ennemis périodique :**
+
 ```python
 def init_wave_system():
     # Spawn toutes les 10 secondes
@@ -316,6 +321,7 @@ def update_wave_system():
 ```
 
 **Effet temporaire :**
+
 ```python
 def activate_power_up():
     player.speed *= 2
@@ -484,14 +490,14 @@ OptionsManager.save()
 Activez les logs pour voir les événements :
 
 ```python
-import logging
-from game_libs import logger
+from game_libs import config
 
-logger.setLevel(logging.DEBUG)
+config.LOG_DEBUG = True
 ```
 
 Messages typiques :
-```
+
+```text
 [EventManager] Key mapping updated
 [GamepadMapping] Gamepad detected: Xbox Controller
 [EventManager] Timer 'explosion_delay' added: duration 3.0s, repeat=False

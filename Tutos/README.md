@@ -5,9 +5,11 @@ Bienvenue dans la documentation des managers du **Shift Project** ! Ce dossier c
 ## 📚 Liste des tutoriels
 
 ### 🔊 [AudioManager](AudioManager.md)
+
 Gestion complète du système audio du jeu.
 
 **Fonctionnalités :**
+
 - 4 types de sons : BGM (musique), BGS (ambiance), ME (effets musicaux), SE (effets sonores)
 - Gestion hiérarchique des volumes (Master + catégories)
 - Support fade-in/fade-out
@@ -15,6 +17,7 @@ Gestion complète du système audio du jeu.
 - Chargement automatique des assets
 
 **À utiliser pour :**
+
 - Jouer de la musique de fond
 - Gérer les sons d'ambiance
 - Déclencher des effets sonores
@@ -23,9 +26,11 @@ Gestion complète du système audio du jeu.
 ---
 
 ### 🖥️ [DisplayManager](DisplayManager.md)
+
 Gestion de la fenêtre et de l'affichage du jeu.
 
 **Fonctionnalités :**
+
 - Création et gestion de la fenêtre
 - Mode plein écran
 - VSync (synchronisation verticale)
@@ -35,6 +40,7 @@ Gestion de la fenêtre et de l'affichage du jeu.
 - Gestion du curseur
 
 **À utiliser pour :**
+
 - Initialiser la fenêtre de jeu
 - Basculer entre modes fenêtré/plein écran
 - Gérer le framerate et la fluidité
@@ -44,9 +50,11 @@ Gestion de la fenêtre et de l'affichage du jeu.
 ---
 
 ### 🎮 [EventManager](EventManager.md)
+
 Gestion des entrées utilisateur et du système de timers.
 
 **Fonctionnalités :**
+
 - Mapping configurable des touches clavier
 - Support des manettes (gamepads)
 - Détection d'états : PRESSED, HELD, RELEASED
@@ -54,6 +62,7 @@ Gestion des entrées utilisateur et du système de timers.
 - Fusion automatique clavier + manette
 
 **À utiliser pour :**
+
 - Détecter les actions du joueur
 - Configurer les contrôles
 - Gérer des cooldowns et événements temporisés
@@ -62,9 +71,11 @@ Gestion des entrées utilisateur et du système de timers.
 ---
 
 ### ⚙️ [OptionsManager](OptionsManager.md)
+
 Gestion centralisée des paramètres et options du jeu.
 
 **Fonctionnalités :**
+
 - Sauvegarde/chargement automatique (JSON)
 - Gestion des volumes audio
 - Paramètres d'affichage (plein écran, VSync, FPS)
@@ -72,6 +83,7 @@ Gestion centralisée des paramètres et options du jeu.
 - Synchronisation avec les autres managers
 
 **À utiliser pour :**
+
 - Créer un menu d'options
 - Sauvegarder les préférences du joueur
 - Charger les paramètres au démarrage
@@ -80,9 +92,11 @@ Gestion centralisée des paramètres et options du jeu.
 ---
 
 ### 🎬 [SceneManager](SceneManager.md)
+
 Gestion des scènes du jeu et des transitions.
 
 **Fonctionnalités :**
+
 - Système de scènes modulaire
 - Transitions fluides (fade, etc.)
 - Cycle de vie des scènes
@@ -90,6 +104,7 @@ Gestion des scènes du jeu et des transitions.
 - États de transition
 
 **À utiliser pour :**
+
 - Organiser le jeu en scènes (menu, jeu, pause, etc.)
 - Naviguer entre les différentes parties du jeu
 - Ajouter des effets de transition
@@ -102,56 +117,63 @@ Gestion des scènes du jeu et des transitions.
 ### Initialisation de base
 
 ```python
+# import built-in modules
+
+# import pygame
 import pygame
-from game_libs.managers.options import OptionsManager
-from game_libs.managers.display import DisplayManager
+
+# import game_libs
 from game_libs.managers.audio import AudioManager
-from game_libs.managers.event import EventManager
 from game_libs.managers.scene import SceneManager
+from game_libs.managers.display import DisplayManager
+from game_libs.managers.options import OptionsManager
 
-# 1. Initialiser pygame
-pygame.init()
+# main function
+def main():
+    """Main function to run the game."""
+    # Initialize pygame
+    pygame.init()
 
-# 2. Charger les options (TOUJOURS EN PREMIER)
-OptionsManager.init()
+    # Initialize managers
+    OptionsManager.init()
+    DisplayManager.init()
+    AudioManager.init()
+    SceneManager.init()
 
-# 3. Initialiser l'affichage
-DisplayManager.init(width=1280, height=720, caption="Mon Jeu")
+    # load the first scene
+    SceneManager.change_scene("Welcome")
 
-# 4. Initialiser l'audio
-AudioManager.init()
+    # Main game loop
+    running = True
+    while running:
+        # tick clock and get delta time
+        DisplayManager.tick()
+        dt = DisplayManager.get_delta_time()
 
-# 5. Initialiser les scènes
-SceneManager.init()
-SceneManager.change_scene("menu")  # Démarrer sur le menu
-
-# 6. Boucle de jeu
-running = True
-while running:
-    # Événements
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
+        # check for QUIT event
+        if pygame.event.peek(pygame.QUIT):
             running = False
-    
-    # Timing
-    DisplayManager.tick()
-    dt = DisplayManager.get_delta_time()
-    
-    # Mise à jour
-    EventManager.update(dt)
-    SceneManager.handle_events()
-    SceneManager.update(dt)
-    
-    # Rendu
-    surface = DisplayManager.get_surface()
-    SceneManager.render(surface)
-    DisplayManager.flip()
 
-# 7. Nettoyage
-OptionsManager.save()
-AudioManager.stop_all()
-DisplayManager.shutdown()
-pygame.quit()
+        # update managers
+        AudioManager.cleanup()
+        SceneManager.update(dt)
+
+        # handle events
+        SceneManager.handle_events()
+
+        # render scene
+        SceneManager.render(DisplayManager.get_surface())
+
+        # update display
+        DisplayManager.flip()
+
+    # Exit properly
+    DisplayManager.shutdown()
+    OptionsManager.save()
+    pygame.quit()
+
+if __name__ == "__main__":
+    main()
 ```
 
 ---
@@ -160,7 +182,7 @@ pygame.quit()
 
 ### Organisation du code
 
-```
+```text
 projet/
 ├── game_libs/
 │   ├── managers/          # Les 5 managers
@@ -280,22 +302,15 @@ def on_volume_slider_change(value):
 Pour voir ce qui se passe dans les managers :
 
 ```python
-import logging
-from game_libs import logger
+from game_libs import config
 
-# Mode debug (tous les messages)
-logger.setLevel(logging.DEBUG)
-
-# Mode info (messages importants uniquement)
-logger.setLevel(logging.INFO)
-
-# Mode warning (erreurs et avertissements uniquement)
-logger.setLevel(logging.WARNING)
+# set log debug to True
+config.LOG_DEBUG = True
 ```
 
 ### Messages de log typiques
 
-```
+```text
 [OptionsManager] Options loaded from .cache/settings.json
 [DisplayManager] Display initialized: 1280x720, fullscreen=False
 [AudioManager] Playing BGM: menu_theme
@@ -308,23 +323,28 @@ logger.setLevel(logging.WARNING)
 ## 🆘 Problèmes courants
 
 ### La fenêtre ne s'affiche pas
+
 - Vérifiez que `pygame.init()` est appelé en premier
 - Assurez-vous d'appeler `DisplayManager.flip()` après le rendu
 
 ### Pas de son
+
 - Vérifiez que les fichiers audio sont dans les bons dossiers
 - Vérifiez les volumes (master et catégorie)
 - Activez les logs pour voir les erreurs
 
 ### Les touches ne répondent pas
-- Appelez `EventManager.update(dt)` dans la boucle de jeu
-- Vérifiez que la scène actuelle appelle `handle_events()`
+
+- Appelez `EventManager.update(dt)` dans `Scene.update(dt)`
+- Appelez `SceneManager.update(dt)` dans la boucle de jeu principale
 
 ### Les changements d'options ne sont pas sauvegardés
+
 - Appelez `OptionsManager.save()` après les modifications
-- Vérifiez que le dossier `.cache` est accessible en écriture
+- Vérifiez que le dossier `cache` est accessible en écriture
 
 ### Les scènes ne changent pas
+
 - Vérifiez que la scène existe et est dans `__all__`
 - Appelez `SceneManager.update(dt)` dans la boucle
 - Vérifiez les logs pour voir les erreurs
@@ -334,6 +354,7 @@ logger.setLevel(logging.WARNING)
 ## 📞 Support et contributions
 
 Pour toute question ou suggestion d'amélioration :
+
 1. Consultez d'abord les tutoriels détaillés
 2. Activez les logs en mode DEBUG
 3. Vérifiez les exemples de code fournis
@@ -346,4 +367,4 @@ Pour toute question ou suggestion d'amélioration :
 
 ---
 
-**Bon développement ! 🚀**
+### Bon développement ! 🚀

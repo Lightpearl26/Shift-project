@@ -39,6 +39,7 @@ DisplayManager.init(
 ```
 
 **Paramètres :**
+
 - `width` : Largeur de la fenêtre (défaut : valeur dans config)
 - `height` : Hauteur de la fenêtre (défaut : valeur dans config)
 - `caption` : Titre de la fenêtre
@@ -94,6 +95,7 @@ DisplayManager.toggle_fullscreen()
 ```
 
 **Exemple d'utilisation :**
+
 ```python
 # Touche F11 pour basculer le plein écran
 def handle_input(event):
@@ -152,6 +154,7 @@ print(f"FPS: {current_fps:.2f}")
 ```
 
 **Exemple d'affichage FPS :**
+
 ```python
 import pygame
 
@@ -183,6 +186,7 @@ is_enabled = DisplayManager.is_vsync_enabled()
 **⚠️ Note :** Changer le VSync nécessite de recréer la fenêtre (peut causer un bref flash).
 
 **Recommandation :**
+
 - VSync ON + FPS cap 0 : Framerate limité par l'écran (60 Hz = 60 FPS)
 - VSync OFF + FPS cap 60 : Framerate constant à 60 FPS sans tearing potentiel
 
@@ -249,6 +253,7 @@ DisplayManager.save_screenshot("victoire_niveau_1.png")
 **Configuration :** Le dossier de destination est défini par `config.SCREENSHOTS_FOLDER`.
 
 **Exemple d'utilisation :**
+
 ```python
 # Touche F12 pour screenshot
 def handle_input(event):
@@ -396,10 +401,11 @@ OptionsManager.save()
 3. **Recréation de fenêtre** : Les opérations suivantes recréent la fenêtre :
    - `toggle_fullscreen()`
    - `set_vsync()`
-   
+
    Cela peut causer un bref flash ou perdre le contexte OpenGL si utilisé.
 
-4. **Performance** : 
+4. **Performance** :
+
    - VSync limite naturellement le FPS au taux de rafraîchissement de l'écran
    - Sans VSync, utilisez `set_fps_cap()` pour limiter la consommation CPU/GPU
 
@@ -412,14 +418,14 @@ OptionsManager.save()
 Activez les logs pour voir les opérations du DisplayManager :
 
 ```python
-import logging
-from game_libs import logger
+from game_libs import config
 
-logger.setLevel(logging.DEBUG)
+config.LOG_DEBUG = True
 ```
 
 Messages de log typiques :
-```
+
+```text
 [DisplayManager] Display initialized: 1920x1080, fullscreen=False
 [DisplayManager] VSync enabled
 [DisplayManager] FPS cap set to: 60

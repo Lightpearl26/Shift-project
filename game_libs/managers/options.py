@@ -64,7 +64,7 @@ class OptionsManager:
     """
 
     # Options file path
-    _OPTIONS_FILE: Path = Path(".cache/settings.json")
+    _OPTIONS_FILE: Path = Path("cache/settings.json")
 
     # Default options
     _options = {

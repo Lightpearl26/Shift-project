@@ -23,8 +23,7 @@ from game_libs.scenes import BaseScene
 
 class MyScene(BaseScene):
     def __init__(self):
-        super().__init__()
-        self.name = "my_scene"  # Nom unique de la scène
+        super().__init__("my_scene") # Nom unique de la scène
     
     def init(self):
         """Appelé une seule fois au démarrage du jeu"""
@@ -48,8 +47,8 @@ class MyScene(BaseScene):
     
     def update(self, dt: float):
         """Appelé à chaque frame pour mettre à jour la logique"""
+        self.event_manager.update(dt) # Ne pas oublier de mettre a jour l'EventManager
         # Mise à jour des entités, physique, etc.
-        pass
     
     def render(self, surface):
         """Appelé à chaque frame pour le rendu"""
@@ -73,6 +72,7 @@ SceneManager.init()
 ```
 
 **Ce que fait init() :**
+
 1. Découvre automatiquement toutes les scènes dans `game_libs.scenes`
 2. Instancie chaque scène
 3. Configure les références aux managers
@@ -95,6 +95,7 @@ SceneState.TRANSITION_IN   # Transition d'entrée en cours
 ```
 
 **Flux de transition :**
+
 1. État NORMAL → L'utilisateur change de scène
 2. État TRANSITION_OUT → Fondu sortant de l'ancienne scène
 3. Changement effectif de scène (on_exit → on_enter)
@@ -130,6 +131,7 @@ SceneManager.change_scene(
 ```
 
 **Paramètres :**
+
 - `name` : Nom de la scène de destination
 - `transition_out` : Transition lors de la sortie (optionnel)
 - `transition_in` : Transition lors de l'entrée (optionnel)
@@ -192,10 +194,15 @@ Transmet les événements à la scène active (seulement en état NORMAL).
 ```python
 # Dans la boucle de jeu
 while running:
+    DisplayManager.tick()
+    dt = DisplayManager.get_delta_time()
+
     # Gérer les événements pygame
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+    if pygame.event.peek(pygame.QUIT)
+        running = False
+    
+    # Mettre a jour le SceneManager AVANT de gérer les événements de la scene
+    SceneManager.update(dt)
     
     # Transmettre à la scène active
     SceneManager.handle_events()
@@ -211,14 +218,12 @@ while running:
     DisplayManager.tick()
     dt = DisplayManager.get_delta_time()
     
-    # Mettre à jour EventManager
-    EventManager.update(dt)
-    
     # Mettre à jour la scène et transitions
     SceneManager.update(dt)
 ```
 
 **Ce que fait update(dt) :**
+
 - Met à jour la transition de sortie si en cours
 - Change effectivement de scène quand la transition de sortie est terminée
 - Met à jour la transition d'entrée si en cours
@@ -240,6 +245,7 @@ def render():
 ```
 
 **Ce que fait render() :**
+
 - Rend la scène active
 - Applique la transition de sortie par-dessus (si active)
 - Applique la transition d'entrée par-dessus (si active)
@@ -258,8 +264,7 @@ from game_libs.managers.event import EventManager, KeyState
 
 class MenuScene(BaseScene):
     def __init__(self):
-        super().__init__()
-        self.name = "menu"
+        super().__init__("menu")
     
     def init(self):
         """Chargement des ressources"""
@@ -304,7 +309,7 @@ class MenuScene(BaseScene):
     
     def update(self, dt: float):
         """Mise à jour"""
-        pass
+        self.event_manager.update(dt)
     
     def render(self, surface):
         """Rendu"""
@@ -324,8 +329,7 @@ class MenuScene(BaseScene):
 # game_libs/scenes/game_scene.py
 class GameScene(BaseScene):
     def __init__(self):
-        super().__init__()
-        self.name = "game"
+        super().__init__("game")
     
     def init(self):
         """Initialisation des ressources du jeu"""
@@ -350,8 +354,8 @@ class GameScene(BaseScene):
     
     def update(self, dt: float):
         """Logique du jeu"""
+        self.event_manager.update(dt)
         # Mise à jour des entités, physique, collisions, etc.
-        pass
     
     def render(self, surface):
         """Rendu du jeu"""
@@ -397,24 +401,21 @@ def main():
     # Boucle de jeu
     running = True
     while running:
-        # Événements pygame
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-        
         # Timing
         DisplayManager.tick()
         dt = DisplayManager.get_delta_time()
-        
-        # Mise à jour des entrées
-        EventManager.update(dt)
+
+        # Événements pygame
+        if pygame.event.peek(pygame.QUIT):
+            running = False
         
         # Déléguer à la scène active
-        SceneManager.handle_events()
         SceneManager.update(dt)
+        SceneManager.handle_events()
         
         # Rendu
         surface = DisplayManager.get_surface()
+        surface.fill((0, 0, 0))
         SceneManager.render(surface)
         DisplayManager.flip()
     
@@ -442,22 +443,13 @@ class FadeTransition(BaseTransition):
     def __init__(self, duration: float, fade_in: bool = False):
         super().__init__(duration)
         self.fade_in = fade_in
-        self.alpha = 0 if fade_in else 255
-    
-    def update(self, dt: float):
-        super().update(dt)
-        progress = self.elapsed / self.duration
-        
-        if self.fade_in:
-            self.alpha = int(255 * (1 - progress))
-        else:
-            self.alpha = int(255 * progress)
     
     def render(self, surface):
         # Créer un overlay noir semi-transparent
         overlay = pygame.Surface(surface.get_size())
         overlay.fill((0, 0, 0))
-        overlay.set_alpha(self.alpha)
+        alpha = 255 * self.progress if self.fade_in else 255 * (1 - self.progress)
+        overlay.set_alpha(alpha)
         surface.blit(overlay, (0, 0))
 
 # Utilisation
@@ -474,8 +466,7 @@ SceneManager.change_scene("next_scene", fade_out, fade_in)
 ```python
 class PauseScene(BaseScene):
     def __init__(self):
-        super().__init__()
-        self.name = "pause"
+        super().__init__("pause")
     
     def init(self):
         self.font = pygame.font.Font(None, 72)
@@ -513,7 +504,7 @@ class PauseScene(BaseScene):
                 self.scene_manager.change_scene("menu")
     
     def update(self, dt: float):
-        pass
+        self.event_manager.update(dt)
     
     def render(self, surface):
         # Rendre la scène de jeu en arrière-plan (floutée/sombre)
@@ -551,7 +542,7 @@ class PauseScene(BaseScene):
 
 4. **Nom unique** : Chaque scène doit avoir un `name` unique pour être accessible
 
-5. **Module __all__** : N'oubliez pas d'ajouter vos nouvelles scènes dans `game_libs/scenes/__init__.py`
+5. **Module \_\_all\_\_** : N'oubliez pas d'ajouter vos nouvelles scènes dans `game_libs/scenes/__init__.py`
 
 ---
 
@@ -560,14 +551,14 @@ class PauseScene(BaseScene):
 Activez les logs :
 
 ```python
-import logging
-from game_libs import logger
+from game_libs import config
 
-logger.setLevel(logging.DEBUG)
+config.LOG_DEBUG = True
 ```
 
 Messages typiques :
-```
+
+```text
 [SceneManager] Available scene: MenuScene
 [SceneManager] Initialized scene: menu
 [SceneManager] Unloaded scene: menu

@@ -3,6 +3,7 @@
 ## 📖 Description
 
 Le **AudioManager** est responsable de la gestion complète du système audio du jeu. Il gère 4 types de sons différents :
+
 - **BGM** (Background Music) : Musiques de fond
 - **BGS** (Background Sounds) : Sons d'ambiance en boucle
 - **ME** (Music Effects) : Effets musicaux courts
@@ -40,6 +41,7 @@ AudioManager.init(
 ```
 
 **Note :** L'initialisation charge automatiquement tous les fichiers audio depuis les dossiers définis dans la configuration :
+
 - `assets/audio/bgm/` pour les BGM
 - `assets/audio/bgs/` pour les BGS
 - `assets/audio/me/` pour les ME
@@ -115,6 +117,7 @@ is_playing = AudioManager.is_bgm_playing()
 ```
 
 **Exemple d'utilisation :**
+
 ```python
 # Dans le menu principal
 AudioManager.play_bgm("menu_theme", fadein_ms=1000)
@@ -159,6 +162,7 @@ AudioManager.stop_all_bgs(fadeout_ms=1000)
 ```
 
 **Exemple d'utilisation :**
+
 ```python
 # Entrer dans une forêt
 AudioManager.play_bgs("forest_ambience", fadein_ms=2000)
@@ -200,6 +204,7 @@ AudioManager.stop_all_me()
 ```
 
 **Exemple d'utilisation :**
+
 ```python
 # Game Over
 AudioManager.play_me("game_over")  # BGM en pause automatiquement
@@ -244,6 +249,7 @@ AudioManager.stop_all_se()
 ```
 
 **Exemple d'utilisation :**
+
 ```python
 # Dans la boucle de jeu
 def on_player_jump():
@@ -351,14 +357,14 @@ AudioManager.stop_all(fadeout_ms=2000)
 Le AudioManager utilise le système de logging du jeu. Activez les logs de debug pour voir les détails :
 
 ```python
-import logging
-from game_libs import logger
+from game_libs import config
 
-logger.setLevel(logging.DEBUG)
+config.LOG_DEBUG = True
 ```
 
 Vous verrez alors des messages comme :
-```
+
+```text
 [AudioManager] Playing BGM: menu_theme
 [AudioManager] SE stopped: explosion
 [AudioManager] Cleaned up finished channels
