@@ -1,239 +1,221 @@
-#-*- coding: utf-8 -*-
-#pylint: disable=import-outside-toplevel, no-value-for-parameter
+# -*- coding : utf-8 -*-
+#pylint: disable=no-value-for-parameter
 
 """
-SHIFT PROJECT game_libs
-____________________________________________________________________________________________________
-Scene Manager
-version : 1.0
-____________________________________________________________________________________________________
-Manages scene lifecycle and transitions
-____________________________________________________________________________________________________
-(c) Lafiteau Franck
+game_libs.managers.scene
+___________________________________________________________________________________________________
+File infos:
+
+    - Author: Franck Lafiteau
+    - Version: 1.0
+___________________________________________________________________________________________________
+Description:
+    This module manages scenes for the game,
+    including scene transitions, loading, and unloading.
+___________________________________________________________________________________________________
+@copyright: Franck Lafiteau 2025
 """
 
+# Import needed built-in modules
 from __future__ import annotations
-
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from enum import Enum, auto
+
+# import game_libs objects
+from .. import scenes
+from ..managers.event import EventManager
+
+# import game logger
 from .. import logger
 
 if TYPE_CHECKING:
+    from ..transitions import BaseTransition
     from pygame import Surface
-    from ..scenes.base import BaseScene
-    from ..scenes.transitions.base import BaseTransition
 
 
-# ----- Scene States ----- #
+# ----- SceneState enum ----- #
 class SceneState(Enum):
     """
-    Enumeration of possible scene manager states.
+    Enum representing the state of the SceneManager.
     """
     NORMAL = auto()
-    TRANSITIONING_OUT = auto()
-    TRANSITIONING_IN = auto()
+    TRANSITION_IN = auto()
+    TRANSITION_OUT = auto()
 
 
-# ----- Scene Manager ----- #
+# ----- SceneManager class ----- #
 class SceneManager:
     """
-    Manages scenes and transitions between them.
-        Static class that manages all game scenes.
+    SceneManager object
     """
-    _scenes: dict[str, BaseScene] = {}
-    _current_scene: str | None = None
-    _next_scene: str | None = None
+    _scenes: dict[str, scenes.BaseScene] = {}
+    _current_scene: Optional[scenes.BaseScene] = None
+    _next_scene: Optional[scenes.BaseScene] = None
+    _previous_scene: Optional[scenes.BaseScene] = None
     _state: SceneState = SceneState.NORMAL
 
-    _transition_out: BaseTransition | None = None
-    _transition_in: BaseTransition | None = None
+    _transition_out: Optional[BaseTransition] = None
+    _transition_in: Optional[BaseTransition] = None
 
     @classmethod
     def init(cls) -> None:
-        """Initialize the SceneManager and load all scenes."""
-        from .. import scenes
-        for attr in scenes.__all__:
-            if not (attr == "transitions" or attr == "BaseScene"):
-                scene_class = getattr(scenes, attr)
-                scene_instance = scene_class()
-                cls.add_scene(scene_instance)
-        logger.info(f"[SceneManager] initialized with {len(cls._scenes)} scenes.")
+        """
+        Initialize the SceneManager.
+        """
+        for scene_class_name in scenes.__all__:
+            if scene_class_name != "BaseScene":
+                logger.info(f"[SceneManager] Available scene: {scene_class_name}")
+
+                # First we instanciate the scene
+                scene_class = getattr(scenes, scene_class_name)
+                scene_inst: scenes.BaseScene = scene_class()
+                scene_inst.scene_manager = cls
+                scene_inst.event_manager = EventManager
+                scene_name = scene_inst.name
+                cls._scenes[scene_name] = scene_inst
+
+                # Then we initialize it
+                scene_inst.init()
+                logger.info(f"[SceneManager] Initialized scene: {scene_name}")
+
+        logger.info("[SceneManager] Initialization complete.")
 
     @classmethod
-    def add_scene(cls, scene: BaseScene) -> None:
+    def handle_events(cls) -> None:
         """
-        Add a scene to the manager.
-        
-        Args:
-            scene: The scene instance to add
+        Handle events for the current scene.
         """
-        cls._scenes[scene.name] = scene
-        scene.scene_manager = cls
-        logger.info(f"[SceneManager] added scene '{scene.name}'.")
-
-    @classmethod
-    def get_scene(cls, scene_name: str) -> BaseScene:
-        """
-        Get a scene by name.
-        
-        Args:
-            scene_name: Name of the scene to retrieve
-        
-        Returns:
-            The requested scene instance
-        """
-        if scene_name not in cls._scenes:
-            logger.error(f"[SceneManager] Scene '{scene_name}' not found.")
-            raise KeyError(f"Scene '{scene_name}' not found.")
-        return cls._scenes[scene_name]
-
-    @classmethod
-    def set_scene(cls, scene_name: str) -> None:
-        """
-        Set the current scene (without transition).
-        
-        Args:
-            scene_name: Name of the scene to activate
-        """
-        if scene_name not in cls._scenes:
-            logger.error(f"[SceneManager] Scene '{scene_name}' not found.")
+        if cls._state != SceneState.NORMAL or not cls._current_scene:
             return
 
-        cls._current_scene = scene_name
-        # Initialize the scene when it becomes active
-        cls._scenes[scene_name].init()
-        cls._state = SceneState.NORMAL
-
-    @classmethod
-    def change_scene(
-        cls,
-        scene_name: str,
-        transition_out: BaseTransition | None = None,
-        transition_in: BaseTransition | None = None
-    ) -> None:
-        """
-        Change to a new scene, optionally with transitions.
-        
-        Args:
-            scene_name: Name of the scene to transition to
-            transition_out: Optional transition out of current scene
-            transition_in: Optional transition into new scene
-        """
-        if scene_name not in cls._scenes:
-            logger.error(f"[SceneManager] Scene '{scene_name}' not found.")
-            return
-
-        cls._next_scene = scene_name
-        cls._transition_out = transition_out
-        cls._transition_in = transition_in
-
-        logger.info(
-            f"[SceneManager] changing scene '{cls._current_scene}' to scene '{scene_name}'."
-        )
-
-        if transition_out is not None and cls._current_scene is not None:
-            # Start transition out
-            cls._state = SceneState.TRANSITIONING_OUT
-            logger.info("[SceneManager] starting transition out.")
-            cls._transition_out.play()
-        else:
-            # No transition, switch immediately
-            cls._switch_to_next_scene()
+        cls._current_scene.handle_events()
 
     @classmethod
     def update(cls, dt: float) -> None:
         """
-        Update the current scene or transition.
-        
-        Args:
-            dt: Delta time since last frame (in milliseconds)
+        Update the current scene.
+        args:
+            dt (float): Delta time since last update in seconds.
         """
-        if cls._state == SceneState.NORMAL:
-            if cls._current_scene is not None:
-                cls._scenes[cls._current_scene].update(dt)
-            else:
-                raise RuntimeError("No current scene to update.")
+        if cls._current_scene is None:
+            return
 
-        elif cls._state == SceneState.TRANSITIONING_OUT:
-            if cls._transition_out is not None:
-                cls._transition_out.update(dt)
+        # Update transitions if any
+        if cls._state == SceneState.TRANSITION_OUT and cls._transition_out:
+            cls._transition_out.update(dt)
+            if cls._transition_out.is_complete:
+                # Unload current scene
+                cls._current_scene.on_exit()
+                logger.info(f"[SceneManager] Unloaded scene: {cls._current_scene.name}")
 
-                if cls._transition_out.is_complete:
-                    # Transition out finished, switch scene
-                    cls._switch_to_next_scene()
+                # Load new scene
+                cls._next_scene.on_enter()
+                cls._previous_scene = cls._current_scene
+                cls._current_scene = cls._next_scene
+                cls._next_scene = None
+                logger.info(f"[SceneManager] Loaded scene: {cls._current_scene.name}")
 
-        elif cls._state == SceneState.TRANSITIONING_IN:
-            if cls._transition_in is not None:
-                cls._transition_in.update(dt)
-
-                # Update the new scene during transition in
-                if cls._current_scene is not None:
-                    cls._scenes[cls._current_scene].update(dt)
-
-                if cls._transition_in.is_complete:
-                    # Transition in finished, return to normal
+                # Start transition in
+                if cls._transition_in:
+                    cls._transition_in.start()
+                    cls._state = SceneState.TRANSITION_IN
+                else:
                     cls._state = SceneState.NORMAL
-                    cls._transition_in = None
-        logger.debug(f"[SceneManager] update dt={dt:.4f} in state {cls._state.name}.")
+
+        elif cls._state == SceneState.TRANSITION_IN and cls._transition_in:
+            cls._transition_in.update(dt)
+            if cls._transition_in.is_complete:
+                cls._state = SceneState.NORMAL
+
+        # Update the current scene
+        cls._current_scene.update(dt)
 
     @classmethod
     def render(cls, surface: Surface) -> None:
         """
-        Render the current scene or transition.
-        
-        Args:
-            surface: The pygame Surface to render to
+        Render the current scene.
+        args:
+            surface (Surface): The surface to render the scene onto.
         """
-        if cls._state == SceneState.NORMAL:
-            if cls._current_scene is not None:
-                cls._scenes[cls._current_scene].render(surface)
-            else:
-                raise RuntimeError("No current scene to render.")
-
-        elif cls._state == SceneState.TRANSITIONING_OUT:
-            if cls._transition_out is not None:
-                cls._transition_out.render(surface)
-
-        elif cls._state == SceneState.TRANSITIONING_IN:
-            if cls._transition_in is not None:
-                cls._transition_in.render(surface)
-        logger.debug(f"[SceneManager] render in state {cls._state.name}.")
-
-    @classmethod
-    def handle_events(cls, key_events: dict[str, dict[str, bool]]) -> None:
-        """
-        Handle input events for the current scene.
-        
-        Args:
-            key_events: Dictionary of key states from EventManager
-        """
-        # Don't process events during transitions
-        if cls._state != SceneState.NORMAL:
+        if cls._current_scene is None:
             return
 
-        if cls._current_scene is not None:
-            cls._scenes[cls._current_scene].handle_events(key_events)
+        if cls._state == SceneState.TRANSITION_OUT and cls._transition_out:
+            cls._current_scene.render(surface)
+            cls._transition_out.render(surface)
+        elif cls._state == SceneState.TRANSITION_IN and cls._transition_in:
+            cls._current_scene.render(surface)
+            cls._transition_in.render(surface)
+        else:
+            cls._current_scene.render(surface)
 
     @classmethod
-    def _switch_to_next_scene(cls) -> None:
-        """Internal method to switch from current scene to next scene"""
-        # Switch to next scene
-        cls._current_scene = cls._next_scene
-        cls._next_scene = None
+    def get_scene(cls, name: str) -> Optional[scenes.BaseScene]:
+        """
+        Get a scene by its name.
 
-        # Initialize/reset the newly activated scene
-        if cls._current_scene is not None:
-            cls._scenes[cls._current_scene].init()
-            logger.debug(f"[SceneManager] switched to scene '{cls._current_scene}'.")
+        Args:
+            - name (str) The name of the scene.
 
-        # Start transition in if specified
-        if cls._transition_in is not None and cls._current_scene is not None:
-            cls._state = SceneState.TRANSITIONING_IN
-            logger.info("[SceneManager] starting transition in.")
-            cls._transition_in.play()
+        Returns:
+            - scene.BaseScene | None: The scene instance if found, else None.
+        """
+        return cls._scenes.get(name, None)
+
+    @classmethod
+    def get_current_scene(cls) -> Optional[scenes.BaseScene]:
+        """
+        Get the current active scene.
+
+        Returns:
+            - scene.BaseScene | None: The current scene instance if any, else None.
+        """
+        return cls._current_scene
+
+    @classmethod
+    def get_previous_scene(cls) -> Optional[scenes.BaseScene]:
+        """
+        Get the previous scene before the current one.
+
+        Returns:
+            - scene.BaseScene | None: The previous scene instance if any, else None.
+        """
+        return cls._previous_scene
+
+    @classmethod
+    def change_scene(cls,
+                     name: str,
+                     transition_out: Optional[BaseTransition] = None,
+                     transition_in: Optional[BaseTransition] = None) -> None:
+        """
+        Change the current scene to a new scene.
+        Args:
+            - name (str) The name of the new scene to switch to.
+            - transition_out (BaseTransition | None): Optional transition for exiting the scene.
+            - transition_in (BaseTransition | None): Optional transition for entering the scene.
+        """
+        new_scene = cls.get_scene(name)
+        if new_scene is None:
+            logger.error(f"[SceneManager] Scene '{name}' not found!")
+            return
+        cls._next_scene = new_scene
+        cls._transition_out = transition_out
+        cls._transition_in = transition_in
+        if cls._transition_out:
+            cls._transition_out.start()
+            cls._state = SceneState.TRANSITION_OUT
         else:
-            # No transition in, return to normal immediately
-            cls._state = SceneState.NORMAL
-
-        # Clean up transition out
-        cls._transition_out = None
+            # No transition out, switch immediately
+            if cls._current_scene:
+                cls._current_scene.on_exit()
+                logger.info(f"[SceneManager] Unloaded scene: {cls._current_scene.name}")
+            cls._next_scene.on_enter()
+            cls._previous_scene = cls._current_scene
+            cls._current_scene = cls._next_scene
+            cls._next_scene = None
+            logger.info(f"[SceneManager] Loaded scene: {cls._current_scene.name}")
+            if cls._transition_in:
+                cls._transition_in.start()
+                cls._state = SceneState.TRANSITION_IN
+            else:
+                cls._state = SceneState.NORMAL

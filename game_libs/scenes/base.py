@@ -1,73 +1,96 @@
 # -*- coding: utf-8 -*-
 
 """
-SHIFT PROJECT Scenes
-____________________________________________________________________________________________________
-Base Scene class for all game scenes
-version : 1.0
-____________________________________________________________________________________________________
-Defines the interface that all scenes must implement
-____________________________________________________________________________________________________
-(c) Lafiteau Franck
+game_libs.scene.base
+___________________________________________________________________________________________________
+File infos:
+
+    - Author: Franck Lafiteau
+    - Version: 1.0
+___________________________________________________________________________________________________
+Description:
+    This module defines the BaseScene class,
+    which serves as the base class for all scenes in the game.
+___________________________________________________________________________________________________
+@copyright: Franck Lafiteau 2026
 """
 
+# import needed built-in modules
 from __future__ import annotations
+from typing import TYPE_CHECKING, Optional
 
-from typing import TYPE_CHECKING
+# import logger
+from .. import logger
 
 if TYPE_CHECKING:
-    from pygame import Surface
     from ..managers.scene import SceneManager
-    from ..managers.event import KeyState
+    from ..managers.event import EventManager
+    from pygame import Surface
 
-
+# ----- BaseScene class ----- #
 class BaseScene:
     """
-    Base class for all game scenes.
-    
-    A scene represents a state of the game (title screen, pause menu, level, etc).
+    BaseScene object
+
+    This is the base class for all scenes in the game.
     """
 
     def __init__(self, name: str) -> None:
         """
-        Initialize the scene.
-        
+        Initialize the BaseScene.
+
         Args:
-            name: The name of this scene (for debugging/logging)
+            - name (str): The name of the scene.
         """
         self.name: str = name
-        self.scene_manager: type[SceneManager] | None = None
+        self.scene_manager: Optional[type[SceneManager]] = None
+        self.event_manager: Optional[type[EventManager]] = None
+        logger.info(f"[BaseScene] Initialized scene: {self.name}")
 
     def init(self) -> None:
         """
-        Initialize scene resources.
-        Called once when the scene is added to the SceneManager.
+        Initialize the scene.
+        This method should be overridden by subclasses.
         """
-        raise NotImplementedError("init method must be implemented by subclasses")
+        raise NotImplementedError("init() method must be overridden in subclasses.")
 
-    def handle_events(self, key_events: dict[str, KeyState]) -> None:
+    def on_enter(self) -> None:
         """
-        Handle input events for the scene.
-        
-        Args:
-            key_events: Dictionary of key states
+        Called when the scene is entered.
+        This method should be overridden by subclasses.
         """
-        raise NotImplementedError("handle_events method must be implemented by subclasses")
+        raise NotImplementedError("on_enter() method must be overridden in subclasses.")
+
+    def on_exit(self) -> None:
+        """
+        Called when the scene is exited.
+        This method should be overridden by subclasses.
+        """
+        raise NotImplementedError("on_exit() method must be overridden in subclasses.")
 
     def update(self, dt: float) -> None:
         """
-        Update the scene state.
-        
+        Update the scene.
+
         Args:
-            dt: Delta time since last frame (in milliseconds)
+            - dt (float): Time delta since the last update.
+        This method should be overridden by subclasses.
         """
-        raise NotImplementedError("update method must be implemented by subclasses")
+        raise NotImplementedError("update() method must be overridden in subclasses.")
+
+    def handle_events(self) -> None:
+        """
+        Handle input events for the scene.
+        This method should be overridden by subclasses.
+        """
+        raise NotImplementedError("handle_events() method must be overridden in subclasses.")
 
     def render(self, surface: Surface) -> None:
         """
         Render the scene onto the given surface.
-        
+
         Args:
-            surface: The pygame Surface to render to
+            - surface (Surface): The surface to render the scene on.
+        This method should be overridden by subclasses.
         """
-        raise NotImplementedError("render method must be implemented by subclasses")
+        raise NotImplementedError("render() method must be overridden in subclasses.")

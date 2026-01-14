@@ -23,7 +23,7 @@ from pygame import Surface, surfarray
 from .base import BaseTransition
 
 if TYPE_CHECKING:
-    from ..base import BaseScene
+    from ..scenes import BaseScene
     from pathlib import Path
 
 
@@ -48,11 +48,10 @@ class VideoTransition(BaseTransition):
         self._frame_duration: float = 0.0
         self._total_frames: int = 0
         self._current_frame: int = 0
-        self._scene: BaseScene | None = None
 
     def play(self) -> None:
         """Start the video transition."""
-        super().play()
+        super().start()
 
         # Ouvrir la vidéo
         self._capture = cv2.VideoCapture(str(self.video_path))
@@ -68,10 +67,6 @@ class VideoTransition(BaseTransition):
         # Calculer la durée totale en secondes (stockage interne)
         self._duration = self._total_frames * self._frame_duration
         self._current_frame = 0
-
-    def set_scene(self, scene: BaseScene | None) -> None:
-        """Set the scene to render behind the video (if video has transparency)."""
-        self._scene = scene
 
     def update(self, dt: float) -> None:
         """Update video playback."""
@@ -129,10 +124,6 @@ class VideoTransition(BaseTransition):
         frame = np.flipud(frame)
 
         video_surface = surfarray.make_surface(frame)
-
-        # Si une scène est attachée, la rendre en arrière-plan (pour vidéos avec alpha)
-        if self._scene is not None:
-            self._scene.render(surface)
 
         # Afficher la vidéo par-dessus
         surface.blit(video_surface, (0, 0))

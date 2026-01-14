@@ -12,23 +12,12 @@ ________________________________________________________________________________
 """
 
 from .base import BaseTransition
-from .fade import FadeIn, FadeOut, CrossFade
-from .polygon import (
-    LeftHexagonTransition,
-    RightHexagonTransition,
-    LeftHexagonReverseTransition,
-    RightHexagonReverseTransition,
-)
+from .fade import FadeIn, FadeOut
 from .video import VideoTransition
 
 __all__ = [
     "BaseTransition",
     "FadeIn",
     "FadeOut",
-    "CrossFade",
-    "LeftHexagonTransition",
-    "RightHexagonTransition",
-    "LeftHexagonReverseTransition",
-    "RightHexagonReverseTransition",
     "VideoTransition",
 ]
