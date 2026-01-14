@@ -12,10 +12,12 @@ Le **AudioManager** est responsable de la gestion complète du système audio du
 ## 🎯 Caractéristiques principales
 
 - Gestion hiérarchique du volume (Master + volumes individuels)
-- Chargement automatique des fichiers audio depuis les dossiers assets
-- Support du fade-in/fade-out
-- Gestion multi-canaux pour les sons simultanés
-- Système de cache pour optimiser les performances
+- Chargement automatique depuis `config.AUDIO_FOLDER` (bgm/bgs/me/se)
+- Fonctions `load_*` pour enregistrer dynamiquement des sons
+- Support du fade-in/fade-out et des canaux simultanés
+- Pause/Reprise/Arrêt global (`pause_all`, `resume_all`, `stop_all`)
+- Méthode `update()` pour nettoyer les canaux terminés
+- Propriété `busy()` pour savoir si un son joue
 
 ---
 
@@ -40,12 +42,21 @@ AudioManager.init(
 )
 ```
 
-**Note :** L'initialisation charge automatiquement tous les fichiers audio depuis les dossiers définis dans la configuration :
+**Note :** L'initialisation charge automatiquement tous les fichiers audio (extensions supportées : mp3, ogg, wav, flac, mod, it, xm, s3m) depuis `config.AUDIO_FOLDER` :
 
-- `assets/audio/bgm/` pour les BGM
-- `assets/audio/bgs/` pour les BGS
-- `assets/audio/me/` pour les ME
-- `assets/audio/se/` pour les SE
+- `.../bgm/` pour les BGM
+- `.../bgs/` pour les BGS
+- `.../me/` pour les ME
+- `.../se/` pour les SE
+
+### Chargement manuel
+
+Ajoutez ou remplacez des sons à chaud :
+
+```python
+AudioManager.load_bgm("boss", "assets/audio/bgm/boss_theme.ogg")
+AudioManager.load_se("click", "assets/audio/se/ui_click.wav")
+```
 
 ---
 
@@ -191,7 +202,7 @@ channel = AudioManager.play_me(
 )
 ```
 
-**Comportement par défaut :** La BGM est automatiquement mise en pause pendant la lecture d'un ME, et reprend après.
+**Comportement par défaut :** Si `pause_bgm=True`, la BGM est mise en pause pendant le ME **mais ne reprend pas automatiquement**. Reprenez-la explicitement si besoin : `AudioManager.resume_bgm()` ou `AudioManager.resume_all()`.
 
 ### Arrêt des ME
 
@@ -266,35 +277,23 @@ def on_explosion():
 
 ## 🧹 Utilitaires
 
-### Arrêt global
+### Pause / reprise / arrêt global
 
 ```python
-# Arrêter tous les sons (BGM, BGS, ME, SE)
-AudioManager.stop_all()
-
-# Avec fade-out
-AudioManager.stop_all(fadeout_ms=1000)
+AudioManager.pause_all()          # Pause BGM + tous les canaux
+AudioManager.resume_all()         # Reprise globale
+AudioManager.stop_all()           # Stop global (option fadeout_ms)
+AudioManager.busy()               # True si quelque chose joue
 ```
 
 ### Nettoyage des canaux
 
 ```python
-# Nettoyer les canaux inactifs (libération mémoire)
-AudioManager.cleanup()
+# Nettoyer automatiquement les canaux terminés
+AudioManager.update()
 ```
 
-**Conseil :** Appelez `cleanup()` périodiquement dans votre boucle principale pour optimiser les performances.
-
-```python
-# Dans la boucle de jeu
-frame_counter = 0
-while running:
-    # ... logique du jeu ...
-    
-    frame_counter += 1
-    if frame_counter % 300 == 0:  # Toutes les 300 frames (~5 secondes à 60 FPS)
-        AudioManager.cleanup()
-```
+**Conseil :** Appelez `AudioManager.update()` dans votre boucle principale (ou à intervalle régulier) pour libérer les canaux terminés.
 
 ---
 
@@ -328,7 +327,8 @@ def on_player_action():
     
 def on_level_complete():
     AudioManager.stop_all_bgs(fadeout_ms=1000)
-    AudioManager.play_me("victory")  # BGM mise en pause auto
+    AudioManager.play_me("victory")  # BGM mise en pause auto (ne reprend pas seule)
+    AudioManager.resume_bgm()        # Reprise manuelle si nécessaire
 
 # Nettoyage en fin de jeu
 AudioManager.stop_all(fadeout_ms=2000)
@@ -342,13 +342,15 @@ AudioManager.stop_all(fadeout_ms=2000)
    - Fichier : `assets/audio/bgm/menu_theme.ogg`
    - Utilisation : `AudioManager.play_bgm("menu_theme")`
 
-2. **Formats supportés** : Le manager supporte les formats audio compatibles avec Pygame (OGG, MP3, WAV)
+2. **Formats supportés** : Le manager supporte les formats audio compatibles avec Pygame (MP3, OGG, WAV, FLAC, MOD, IT, XM, S3M)
 
 3. **Limitations de canaux** : Par défaut, 32 canaux simultanés sont disponibles pour les sons (BGS, ME, SE)
 
 4. **BGM vs BGS** : Une seule BGM peut jouer à la fois, mais plusieurs BGS peuvent être actifs simultanément
 
-5. **Performance** : Les sons sont mis en cache automatiquement pour éviter les rechargements
+5. **ME & BGM** : `play_me(pause_bgm=True)` met la BGM en pause mais ne la reprend pas. Reprenez-la explicitement (`resume_bgm` ou `resume_all`).
+
+6. **Nettoyage** : Appelez `AudioManager.update()` régulièrement pour libérer les canaux terminés.
 
 ---
 

@@ -48,7 +48,7 @@ def main():
             running = False
 
         # update managers
-        AudioManager.cleanup()
+        AudioManager.update()
         SceneManager.update(dt)
 
         # handle events

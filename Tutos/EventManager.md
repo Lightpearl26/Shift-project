@@ -8,9 +8,9 @@ Le **EventManager** gère tous les événements d'entrée utilisateur du jeu : c
 
 - Mapping des touches clavier configurables
 - Support des manettes de jeu (gamepads)
-- Détection d'états : PRESSED, HELD, RELEASED
-- Système de timers intégré
-- Fusion automatique des entrées clavier + manette
+- Détection d'états : PRESSED, HELD, RELEASED (fusion clavier + manette)
+- Système de timers intégré avec pause/reprise
+- Validation des mappings (codes >= 0)
 
 ---
 
@@ -95,9 +95,9 @@ Par défaut, le gamepad utilise une disposition standard (Xbox/PlayStation) :
 
 ```python
 # Boutons par défaut
-SPRINT = Bouton 10  # RB / R1
-JUMP = Bouton 0     # A / Croix
-PAUSE = Bouton 5, 1 # Start/Options / B/Cercle
+JUMP   = bouton 0   # A / Croix
+SPRINT = bouton 10  # LB / L1
+PAUSE  = boutons 5 ou 1  # Start / Options / (selon pad)
 ```
 
 ### Directions
@@ -128,14 +128,17 @@ EventManager.set_gamepad_mapping(gamepad_mapping)
 
 ### update()
 
-**⚠️ IMPORTANT :** Appelez cette méthode une fois par frame avant de lire les états.
+**⚠️ IMPORTANT :** Appelez cette méthode une fois par frame avant de lire les états (après avoir pompé les événements pygame via `pygame.event.get()` ou `pygame.event.pump()`).
 
 ```python
 # Dans la boucle de jeu
 while running:
+    # Pomper les événements pygame pour mettre à jour l'état des entrées
+    pygame.event.pump()
+
     dt = DisplayManager.get_delta_time()
     
-    # Mettre à jour les entrées
+    # Mettre à jour les entrées (fusion clavier + manette)
     EventManager.update(dt)
     
     # Lire les états
@@ -155,10 +158,11 @@ keys = EventManager.get_keys()
 if keys["JUMP"] == KeyState.PRESSED:
     player_jump()  # Saut une seule fois
 
-if keys["RIGHT"] == KeyState.HELD:
-    player_move_right()  # Déplacement continu
+# Déplacements continus : PRESSED ou HELD
+if keys["RIGHT"] & (KeyState.PRESSED | KeyState.HELD):
+    player_move_right()
 
-if keys["LEFT"] & KeyState.PRESSED:  # Using bitwise operations
+if keys["LEFT"] & (KeyState.PRESSED | KeyState.HELD):
     player_start_moving_left()
 ```
 
@@ -468,20 +472,15 @@ OptionsManager.save()
 
 ## ⚠️ Notes importantes
 
-1. **update() obligatoire** : Appelez `EventManager.update(dt)` une fois par frame avant de lire les états
+1. **update() obligatoire** : Appelez `EventManager.update(dt)` une fois par frame, après avoir pompé les événements pygame.
 
-2. **pygame.event.pump()** : L'EventManager appelle automatiquement `pygame.event.pump()` pour rafraîchir les états d'entrée
+2. **Fusion clavier/manette** : Précedence `PRESSED` > `HELD` > `RELEASED` pour chaque action.
 
-3. **Manette** : La détection de manette est automatique au premier appel de `update()`
+3. **Manette** : La détection du premier gamepad est automatique lors du premier `update()`.
 
-4. **Fusion clavier/manette** : Les entrées clavier et manette sont fusionnées automatiquement :
-   - Si l'une des deux sources est `PRESSED`, le résultat est `PRESSED`
-   - Sinon si l'une est `HELD`, le résultat est `HELD`
-   - Sinon le résultat est `RELEASED`
+4. **Timers** : Les timers stockent `time_left`, `duration`, `repeat`, `paused`. Ils respectent les pauses globales ou ciblées.
 
-5. **Timers** : Les timers sont mis à jour automatiquement dans `update(dt)` et respectent la pause globale
-
-6. **Scancodes** : Utilisez les constantes pygame pour les scancodes (ex: `pygame.K_SPACE`)
+5. **Scancodes** : Utilisez les constantes pygame (`pygame.K_*`). Les mappings acceptent tout code entier >= 0.
 
 ---
 
