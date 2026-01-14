@@ -1,254 +1,324 @@
-#-*- coding: utf-8 -*-
+# -*- coding : utf-8 -*-
 #pylint: disable=broad-except
 
 """
-SHIFT PROJECT game_libs
-____________________________________________________________________________________________________
 game_libs.managers.audio
-version : 2.0
-____________________________________________________________________________________________________
-This Package contains the audio manager lib with channel management
-____________________________________________________________________________________________________
-(c) Lafiteau Franck
+___________________________________________________________________________________________________
+File infos:
+
+    - Author: Franck Lafiteau
+    - Version: 2.0
+___________________________________________________________________________________________________
+Description:
+    This module manages audio functionalities for the game,
+    including loading, playing, and controlling sound effects
+    and background music using the pygame library.
+___________________________________________________________________________________________________
+@copyright: Franck Lafiteau 2026
 """
 
-# Importing the pygame mixer module
-from __future__ import annotations
+# Import os module
+from os.path import join
 from os import listdir
-from os.path import join, splitext, isfile
-from typing import TYPE_CHECKING
-from pygame.mixer import init as mixer_init, set_num_channels
+
+# Import pygame mixer objects
+from pygame.mixer import (
+    Sound,
+    Channel,
+    init as mixer_init,
+    set_num_channels,
+    pause as pause_mixer,
+    unpause as unpause_mixer,
+)
 from pygame.mixer_music import (
-    load as music_load,
-    play as music_play,
-    stop as music_stop,
-    pause as music_pause,
-    unpause as music_unpause,
-    fadeout as music_fadeout,
-    set_volume as music_set_volume,
-    get_busy as music_get_busy
+    load as load_music,
+    play as play_music,
+    fadeout as fadeout_music,
+    set_volume as set_music_volume,
+    pause as pause_music,
+    unpause as unpause_music,
+    get_busy as busy_music,
+    stop as stop_music,
 )
 
-# Importing the AssetsCache for audio file management
+# Import AssetsCache
 from ..assets_cache import AssetsCache
 
-# Importing config file
+# Import config
 from .. import config
 
-# Importing the logger
+# Import logger
 from .. import logger
 
-if TYPE_CHECKING:
-    from pygame.mixer import Sound, Channel
 
-# ----- Audio Manager Class ----- #
+# ----- AudioManager class ----- #
 class AudioManager:
     """
-    Audio Manager Class
+    AudioManager object
+    
+    This object represent the audio manager of the game
+    
+    Properties (classmethods):
+        busy (bool): Check if any audio is currently playing
+        master_volume (float): Master volume
+        bgm_volume (float): Background music volume
+        bgs_volume (float): Background sounds volume
+        me_volume (float): Music effects volume
+        se_volume (float): Sound effects volume
+    Methods:
+        set_master_volume(volume: float) -> None
+        set_bgm_volume(volume: float) -> None
+        set_bgs_volume(volume: float) -> None
+        set_me_volume(volume: float) -> None
+        set_se_volume(volume: float) -> None
+        load_bgm(name: str, path: str) -> None
+        load_bgs(name: str, path: str) -> None
+        load_me(name: str, path: str) -> None
+        load_se(name: str, path: str) -> None
+        play_bgm(name: str, loops: int = -1, start: float = 0.0, fadein_ms: int = 0) -> None
+        pause_bgm() -> None
+        resume_bgm() -> None
+        stop_bgm(fadeout_ms: int = 0) -> None
+        is_bgm_playing() -> bool
+        play_bgs(name: str, loops: int = -1, fadein_ms: int = 0) -> Channel | None
+        stop_bgs(name: str, fadeout_ms: int = 0) -> None
+        stop_all_bgs(fadeout_ms: int = 0) -> None
+        play_me(name: str, pause_bgm: bool = True) -> Channel | None
+        stop_me(name: str, fadeout_ms: int = 0) -> None
+        stop_all_me(fadeout_ms: int = 0) -> None
+        play_se(name: str, volume_modifier: float = 1.0) -> Channel | None
+        stop_se(name: str, fadeout_ms: int = 0) -> None
+        stop_all_se(fadeout_ms: int = 0) -> None
+        stop_all(fadeout_ms: int = 0) -> None
+        init(frequency: int = 44100, size: int = -16, channels: int = 2, buffer: int = 512) -> None
+        update() -> None
     """
-    # protected class variables for volume levels
+    # volume attributes
     _master_volume: float = 1.0
     _bgm_volume: float = 1.0
     _bgs_volume: float = 1.0
     _me_volume: float = 1.0
     _se_volume: float = 1.0
 
-    # protected class variable for sounds cache
+    # sounds dictionnaries
     _bgm: dict[str, str] = {}
     _bgs: dict[str, str] = {}
     _me: dict[str, str] = {}
     _se: dict[str, str] = {}
 
-    # protected class variable for channels
-    _bgs_channel: dict[str, list[Channel]] = {}
-    _me_channel: dict[str, list[Channel]] = {}
-    _se_channel: dict[str, list[Channel]] = {}
+    # channel tracking for memory management (support multiple concurrent plays per sound)
+    _bgs_channels: dict[str, list[Channel]] = {}
+    _me_channels: dict[str, list[Channel]] = {}
+    _se_channels: dict[str, list[Channel]] = {}
 
-    # Current BGM state
-    _current_bgm: str | None = None
+    # audio state
     _bgm_paused: bool = False
+    _current_bgm: str | None = None
 
-    # ===== Volume Getters ===== #
+    # protected methods
     @classmethod
-    def get_master_volume(cls) -> float:
-        """Get the master volume level"""
+    def _update_volumes(cls) -> None:
+        """
+        Update all volumes based on master volume and individual volumes
+        """
+        set_music_volume(cls._bgm_volume * cls._master_volume)
+        for channels in cls._bgs_channels.values():
+            for channel in channels:
+                channel.set_volume(cls._bgs_volume * cls._master_volume)
+        for channels in cls._me_channels.values():
+            for channel in channels:
+                channel.set_volume(cls._me_volume * cls._master_volume)
+        for channels in cls._se_channels.values():
+            for channel in channels:
+                channel.set_volume(cls._se_volume * cls._master_volume)
+
+    # busy properties
+    @classmethod
+    def busy(cls) -> bool:
+        """
+        Check if any audio is currently playing
+        
+        Returns:
+            : bool: True if any audio is playing, False otherwise
+        """
+        if busy_music():
+            return True
+        for channels in cls._bgs_channels.values():
+            for channel in channels:
+                if channel.get_busy():
+                    return True
+        for channels in cls._me_channels.values():
+            for channel in channels:
+                if channel.get_busy():
+                    return True
+        for channels in cls._se_channels.values():
+            for channel in channels:
+                if channel.get_busy():
+                    return True
+        return False
+
+    # volume properties
+    @classmethod
+    def master_volume(cls) -> float:
+        """
+        Get the master volume
+        
+        Returns:
+            : float: Master volume
+        """
         return cls._master_volume
 
     @classmethod
-    def get_bgm_volume(cls) -> float:
-        """Get the background music volume level"""
+    def bgm_volume(cls) -> float:
+        """
+        Get the background music volume
+        
+        Returns:
+            : float: Background music volume
+        """
         return cls._bgm_volume
 
     @classmethod
-    def get_bgs_volume(cls) -> float:
-        """Get the background sounds volume level"""
+    def bgs_volume(cls) -> float:
+        """
+        Get the background sounds volume
+        
+        Returns:
+            : float: Background sounds volume
+        """
         return cls._bgs_volume
 
     @classmethod
-    def get_me_volume(cls) -> float:
-        """Get the music effects volume level"""
+    def me_volume(cls) -> float:
+        """
+        Get the music effects volume
+        
+        Returns:
+            : float: Music effects volume
+        """
         return cls._me_volume
 
     @classmethod
-    def get_se_volume(cls) -> float:
-        """Get the sound effects volume level"""
+    def se_volume(cls) -> float:
+        """
+        Get the sound effects volume
+        
+        Returns:
+            : float: Sound effects volume
+        """
         return cls._se_volume
 
-    # ===== Volume Setters ===== #
+    # class methods to control volumes
     @classmethod
     def set_master_volume(cls, volume: float) -> None:
         """
-        Set the master volume level
+        Set the master volume
+        
+        Args:
+            : volume (float): Master volume (0.0 to 1.0)
         """
         cls._master_volume = max(0.0, min(1.0, volume))
         cls._update_volumes()
-        logger.info(f"[AudioManager] Master volume set to {cls._master_volume}")
+        logger.debug(f"[AudioManager] Set master volume to {cls._master_volume}")
 
     @classmethod
     def set_bgm_volume(cls, volume: float) -> None:
         """
-        Set the background music volume level
+        Set the background music volume
+        
+        Args:
+            : volume (float): Background music volume (0.0 to 1.0)
         """
         cls._bgm_volume = max(0.0, min(1.0, volume))
         cls._update_volumes()
-        logger.info(f"[AudioManager] BGM volume set to {cls._bgm_volume}")
+        logger.debug(f"[AudioManager] Set BGM volume to {cls._bgm_volume}")
 
     @classmethod
     def set_bgs_volume(cls, volume: float) -> None:
         """
-        Set the background sounds volume level
+        Set the background sounds volume
+        
+        Args:
+            : volume (float): Background sounds volume (0.0 to 1.0)
         """
         cls._bgs_volume = max(0.0, min(1.0, volume))
         cls._update_volumes()
-        logger.info(f"[AudioManager] BGS volume set to {cls._bgs_volume}")
+        logger.debug(f"[AudioManager] Set BGS volume to {cls._bgs_volume}")
 
     @classmethod
     def set_me_volume(cls, volume: float) -> None:
         """
-        Set the music effects volume level
+        Set the music effects volume
+        
+        Args:
+            : volume (float): Music effects volume (0.0 to 1.0)
         """
         cls._me_volume = max(0.0, min(1.0, volume))
         cls._update_volumes()
-        logger.info(f"[AudioManager] ME volume set to {cls._me_volume}")
+        logger.debug(f"[AudioManager] Set ME volume to {cls._me_volume}")
 
     @classmethod
     def set_se_volume(cls, volume: float) -> None:
         """
-        Set the sound effects volume level
+        Set the sound effects volume
+        
+        Args:
+            : volume (float): Sound effects volume (0.0 to 1.0)
         """
         cls._se_volume = max(0.0, min(1.0, volume))
         cls._update_volumes()
-        logger.info(f"[AudioManager] SE volume set to {cls._se_volume}")
+        logger.debug(f"[AudioManager] Set SE volume to {cls._se_volume}")
 
+    # class methods to load audio files
     @classmethod
-    def _update_volumes(cls) -> None:
+    def load_bgm(cls, name: str, path: str) -> None:
         """
-        Update all volumes based on the master volume and individual volumes
-        """
-        # Update BGM volume
-        music_set_volume(cls._master_volume * cls._bgm_volume)
-
-        # Update BGS channels volume
-        for channels in cls._bgs_channel.values():
-            for channel in channels:
-                channel.set_volume(cls._master_volume * cls._bgs_volume)
-
-        # Update ME channels volume
-        for channels in cls._me_channel.values():
-            for channel in channels:
-                channel.set_volume(cls._master_volume * cls._me_volume)
-
-        # Update SE channels volume
-        for channels in cls._se_channel.values():
-            for channel in channels:
-                channel.set_volume(cls._master_volume * cls._se_volume)
-
-
-    # ===== Initialization Methods ===== #
-    @classmethod
-    def init(cls,
-             frequency: int = 44100,
-             size: int = -16,
-             channels: int = 2,
-             buffer: int = 512) -> None:
-        """
-        Initialize the audio manager
+        Load a background music file
         
         Args:
-            frequency: Sample rate (Hz) - typically 22050 or 44100
-            size: Bit size - 8, -16 (negative for signed)
-            channels: Number of channels - 1 (mono) or 2 (stereo)
-            buffer: Buffer size - smaller = less lag, larger = less CPU
+            : name (str): Name of the background music
+            : path (str): Path to the background music file
         """
-        try:
-            mixer_init(frequency, size, channels, buffer)
-            set_num_channels(32)  # Allow up to 32 simultaneous sounds
-            logger.info(f"[AudioManager] Initialized: {frequency}Hz, {channels}ch, buffer={buffer}")
-
-            # Auto-load audio files from assets folders
-            cls._auto_load_audio_files()
-
-        except Exception as e:
-            logger.error(f"[AudioManager] Failed to initialize: {e}")
+        cls._bgm[name] = path
+        logger.info(f"[AudioManager] Loaded BGM <{name}> from path '{path}'")
 
     @classmethod
-    def _auto_load_audio_files(cls) -> None:
+    def load_bgs(cls, name: str, path: str) -> None:
         """
-        Automatically load all audio files from assets folders
+        Load a background sound file
+        
+        Args:
+            : name (str): Name of the background sound
+            : path (str): Path to the background sound file
         """
-        # Load BGM files (musics)
-        try:
-            bgm_files = [f
-                         for f in listdir(config.BGM_FOLDER)
-                         if isfile(join(config.BGM_FOLDER, f))]
-            for file in bgm_files:
-                name, _ = splitext(file)
-                filepath = join(config.BGM_FOLDER, file)
-                cls._bgm[name] = filepath
-            logger.info(f"[AudioManager] Loaded {len(bgm_files)} BGM files")
-        except Exception as e:
-            logger.error(f"[AudioManager] Failed to load BGM files: {e}")
+        cls._bgs[name] = path
+        logger.info(f"[AudioManager] Loaded BGS <{name}> from path '{path}'")
 
-        # Load BGS files (background sounds)
-        try:
-            bgs_files = [f
-                         for f in listdir(config.BGS_FOLDER)
-                         if isfile(join(config.BGS_FOLDER, f))]
-            for file in bgs_files:
-                name, _ = splitext(file)
-                filepath = join(config.BGS_FOLDER, file)
-                cls._bgs[name] = filepath
-            logger.info(f"[AudioManager] Loaded {len(bgs_files)} BGS files")
-        except Exception as e:
-            logger.error(f"[AudioManager] Failed to load BGS files: {e}")
+    @classmethod
+    def load_me(cls, name: str, path: str) -> None:
+        """
+        Load a music effect file
+        
+        Args:
+            : name (str): Name of the music effect
+            : path (str): Path to the music effect file
+        """
+        cls._me[name] = path
+        logger.info(f"[AudioManager] Loaded ME <{name}> from path '{path}'")
 
-        # Load ME files (music effects)
-        try:
-            me_files = [f
-                        for f in listdir(config.ME_FOLDER)
-                        if isfile(join(config.ME_FOLDER, f))]
-            for file in me_files:
-                name, _ = splitext(file)
-                filepath = join(config.ME_FOLDER, file)
-                cls._me[name] = filepath
-            logger.info(f"[AudioManager] Loaded {len(me_files)} ME files")
-        except Exception as e:
-            logger.error(f"[AudioManager] Failed to load ME files: {e}")
+    @classmethod
+    def load_se(cls, name: str, path: str) -> None:
+        """
+        Load a sound effect file
+        
+        Args:
+            : name (str): Name of the sound effect
+            : path (str): Path to the sound effect file
+        """
+        cls._se[name] = path
+        logger.info(f"[AudioManager] Loaded SE <{name}> from path '{path}'")
 
-        # Load SE files (sound effects)
-        try:
-            se_files = [f
-                        for f in listdir(config.SE_FOLDER)
-                        if isfile(join(config.SE_FOLDER, f))]
-            for file in se_files:
-                name, _ = splitext(file)
-                filepath = join(config.SE_FOLDER, file)
-                cls._se[name] = filepath
-            logger.info(f"[AudioManager] Loaded {len(se_files)} SE files")
-        except Exception as e:
-            logger.error(f"[AudioManager] Failed to load SE files: {e}")
-
-    # ===== BGM Playback Methods ===== #
+    # - BGM playback methods
     @classmethod
     def play_bgm(cls, name: str, loops: int = -1, start: float = 0.0, fadein_ms: int = 0) -> None:
         """
@@ -265,23 +335,23 @@ class AudioManager:
             return
 
         try:
-            music_load(cls._bgm[name])
-            music_set_volume(cls._master_volume * cls._bgm_volume)
+            load_music(cls._bgm[name])
+            set_music_volume(cls._master_volume * cls._bgm_volume)
             if fadein_ms > 0:
-                music_play(loops=loops, start=start, fade_ms=fadein_ms)
+                play_music(loops=loops, start=start, fade_ms=fadein_ms)
             else:
-                music_play(loops=loops, start=start)
+                play_music(loops=loops, start=start)
             cls._current_bgm = name
             cls._bgm_paused = False
-            logger.debug(f"[AudioManager] Playing BGM: {name}")
+            logger.info(f"[AudioManager] Playing BGM: {name}")
         except Exception as e:
             logger.error(f"[AudioManager] Failed to play BGM '{name}': {e}")
 
     @classmethod
     def pause_bgm(cls) -> None:
         """Pause the currently playing BGM"""
-        if music_get_busy() and not cls._bgm_paused:
-            music_pause()
+        if cls.is_bgm_playing():
+            pause_music()
             cls._bgm_paused = True
             logger.debug("[AudioManager] BGM paused")
 
@@ -289,7 +359,7 @@ class AudioManager:
     def resume_bgm(cls) -> None:
         """Resume the paused BGM"""
         if cls._bgm_paused:
-            music_unpause()
+            unpause_music()
             cls._bgm_paused = False
             logger.debug("[AudioManager] BGM resumed")
 
@@ -302,19 +372,19 @@ class AudioManager:
             fadeout_ms: Fadeout duration in milliseconds
         """
         if fadeout_ms > 0:
-            music_fadeout(fadeout_ms)
+            fadeout_music(fadeout_ms)
         else:
-            music_stop()
+            stop_music()
         cls._current_bgm = None
         cls._bgm_paused = False
-        logger.debug("[AudioManager] BGM stopped")
+        logger.info("[AudioManager] BGM stopped")
 
     @classmethod
     def is_bgm_playing(cls) -> bool:
         """Check if BGM is currently playing"""
-        return music_get_busy() and not cls._bgm_paused
+        return busy_music() and not cls._bgm_paused
 
-    # ===== BGS Playback Methods ===== #
+    # - BGS playback methods
     @classmethod
     def play_bgs(cls, name: str, loops: int = -1, fadein_ms: int = 0) -> Channel | None:
         """
@@ -331,21 +401,21 @@ class AudioManager:
         if name not in cls._bgs:
             logger.warning(f"[AudioManager] BGS '{name}' not found")
             return None
-            
+
         try:
             # Stop existing BGS with same name
-            if name in cls._bgs_channel:
+            if name in cls._bgs_channels:
                 cls.stop_bgs(name)
-            
+
             sound: Sound = AssetsCache.load_sound(cls._bgs[name])
             channel = sound.play(loops=loops, fade_ms=fadein_ms)
-            
+
             if channel:
                 channel.set_volume(cls._master_volume * cls._bgs_volume)
-                if name not in cls._bgs_channel:
-                    cls._bgs_channel[name] = []
-                cls._bgs_channel[name].append(channel)
-                logger.debug(f"[AudioManager] Playing BGS: {name}")
+                if name not in cls._bgs_channels:
+                    cls._bgs_channels[name] = []
+                cls._bgs_channels[name].append(channel)
+                logger.info(f"[AudioManager] Playing BGS: {name}")
                 return channel
             else:
                 logger.warning(f"[AudioManager] No available channel for BGS '{name}'")
@@ -363,24 +433,24 @@ class AudioManager:
             name: Name of the BGS to stop
             fadeout_ms: Fadeout duration in milliseconds
         """
-        if name in cls._bgs_channel:
-            for channel in cls._bgs_channel[name]:
+        if name in cls._bgs_channels:
+            for channel in cls._bgs_channels[name]:
                 if channel and channel.get_busy():
                     if fadeout_ms > 0:
                         channel.fadeout(fadeout_ms)
                     else:
                         channel.stop()
-            del cls._bgs_channel[name]
-            logger.debug(f"[AudioManager] BGS stopped: {name}")
+            del cls._bgs_channels[name]
+            logger.info(f"[AudioManager] BGS stopped: {name}")
 
     @classmethod
     def stop_all_bgs(cls, fadeout_ms: int = 0) -> None:
         """Stop all background sounds"""
-        for name in list(cls._bgs_channel.keys()):
+        for name in list(cls._bgs_channels.keys()):
             cls.stop_bgs(name, fadeout_ms)
         logger.debug("[AudioManager] All BGS stopped")
 
-    # ===== ME Playback Methods ===== #
+    # - ME playback methods
     @classmethod
     def play_me(cls, name: str, pause_bgm: bool = True) -> Channel | None:
         """
@@ -389,6 +459,7 @@ class AudioManager:
         Args:
             name: Name of the ME to play
             pause_bgm: Whether to temporarily pause BGM while ME plays
+                       It won't resume BGM after ME ends, caller must handle that.
             
         Returns:
             The channel playing the sound, or None if failed
@@ -398,7 +469,7 @@ class AudioManager:
             return None
 
         try:
-            if pause_bgm and music_get_busy():
+            if pause_bgm and busy_music():
                 cls.pause_bgm()
 
             sound: Sound = AssetsCache.load_sound(cls._me[name])
@@ -406,10 +477,10 @@ class AudioManager:
 
             if channel:
                 channel.set_volume(cls._master_volume * cls._me_volume)
-                if name not in cls._me_channel:
-                    cls._me_channel[name] = []
-                cls._me_channel[name].append(channel)
-                logger.debug(f"[AudioManager] Playing ME: {name}")
+                if name not in cls._me_channels:
+                    cls._me_channels[name] = []
+                cls._me_channels[name].append(channel)
+                logger.info(f"[AudioManager] Playing ME: {name}")
                 return channel
             else:
                 logger.warning(f"[AudioManager] No available channel for ME '{name}'")
@@ -427,24 +498,24 @@ class AudioManager:
             name: Name of the ME to stop
             fadeout_ms: Fadeout duration in milliseconds
         """
-        if name in cls._me_channel:
-            for channel in cls._me_channel[name]:
+        if name in cls._me_channels:
+            for channel in cls._me_channels[name]:
                 if channel and channel.get_busy():
                     if fadeout_ms > 0:
                         channel.fadeout(fadeout_ms)
                     else:
                         channel.stop()
-            del cls._me_channel[name]
-            logger.debug(f"[AudioManager] ME stopped: {name}")
+            del cls._me_channels[name]
+            logger.info(f"[AudioManager] ME stopped: {name}")
 
     @classmethod
     def stop_all_me(cls, fadeout_ms: int = 0) -> None:
         """Stop all music effects"""
-        for name in list(cls._me_channel.keys()):
+        for name in list(cls._me_channels.keys()):
             cls.stop_me(name, fadeout_ms)
         logger.debug("[AudioManager] All ME stopped")
 
-    # ===== SE Playback Methods ===== #
+    # - SE playback methods
     @classmethod
     def play_se(cls, name: str, volume_modifier: float = 1.0) -> Channel | None:
         """
@@ -468,10 +539,10 @@ class AudioManager:
             if channel:
                 final_volume = cls._master_volume * cls._se_volume * max(0.0, min(1.0, volume_modifier))
                 channel.set_volume(final_volume)
-                if name not in cls._se_channel:
-                    cls._se_channel[name] = []
-                cls._se_channel[name].append(channel)
-                logger.debug(f"[AudioManager] Playing SE: {name}")
+                if name not in cls._se_channels:
+                    cls._se_channels[name] = []
+                cls._se_channels[name].append(channel)
+                logger.info(f"[AudioManager] Playing SE: {name}")
                 return channel
             else:
                 logger.debug(f"[AudioManager] No available channel for SE '{name}'")
@@ -489,24 +560,38 @@ class AudioManager:
             name: Name of the SE to stop
             fadeout_ms: Fadeout duration in milliseconds
         """
-        if name in cls._se_channel:
-            for channel in cls._se_channel[name]:
+        if name in cls._se_channels:
+            for channel in cls._se_channels[name]:
                 if channel and channel.get_busy():
                     if fadeout_ms > 0:
                         channel.fadeout(fadeout_ms)
                     else:
                         channel.stop()
-            del cls._se_channel[name]
-            logger.debug(f"[AudioManager] SE stopped: {name}")
+            del cls._se_channels[name]
+            logger.info(f"[AudioManager] SE stopped: {name}")
 
     @classmethod
     def stop_all_se(cls, fadeout_ms: int = 0) -> None:
         """Stop all sound effects"""
-        for name in list(cls._se_channel.keys()):
+        for name in list(cls._se_channels.keys()):
             cls.stop_se(name, fadeout_ms)
         logger.debug("[AudioManager] All SE stopped")
 
-    # ===== Utility Methods ===== #
+    # class methods to control all audio
+    @classmethod
+    def pause_all(cls) -> None:
+        """Pause all audio (BGM and sound channels)"""
+        cls.pause_bgm()
+        pause_mixer()
+        logger.info("[AudioManager] All audio paused")
+
+    @classmethod
+    def resume_all(cls) -> None:
+        """Resume all paused audio"""
+        cls.resume_bgm()
+        unpause_mixer()
+        logger.info("[AudioManager] All audio resumed")
+
     @classmethod
     def stop_all(cls, fadeout_ms: int = 0) -> None:
         """Stop all audio (BGM, BGS, ME, SE)"""
@@ -516,25 +601,87 @@ class AudioManager:
         cls.stop_all_se(fadeout_ms)
         logger.info("[AudioManager] All audio stopped")
 
+    # class method to initialize the audio manager
     @classmethod
-    def cleanup(cls) -> None:
-        """Clean up finished channels"""
-        # Clean BGS channels
-        for name in list(cls._bgs_channel.keys()):
-            cls._bgs_channel[name] = [ch for ch in cls._bgs_channel[name] if ch.get_busy()]
-            if not cls._bgs_channel[name]:
-                del cls._bgs_channel[name]
+    def init(cls,
+             frequency: int = 44100,
+             size: int = -16,
+             channels: int = 2,
+             buffer: int = 512) -> None:
+        """
+        Initialize the AudioManager and loading audio files from config
+        """
+        try:
+            mixer_init(frequency, size, channels, buffer)
+            set_num_channels(32)  # Set number of channels for concurrent sounds
+            logger.debug("[AudioManager] Pygame mixer initialized")
+            # Valid audio extensions
+            valid_extensions = ('.mp3', '.ogg', '.wav', '.flac', '.mod', '.it', '.xm', '.s3m')
 
-        # Clean ME channels
-        for name in list(cls._me_channel.keys()):
-            cls._me_channel[name] = [ch for ch in cls._me_channel[name] if ch.get_busy()]
-            if not cls._me_channel[name]:
-                del cls._me_channel[name]
+            # Loading all available BGM files
+            try:
+                for bgm in listdir(join(config.AUDIO_FOLDER, "bgm")):
+                    if bgm.lower().endswith(valid_extensions):
+                        filename = bgm.rsplit(".", 1)[0]
+                        cls.load_bgm(filename, join(config.AUDIO_FOLDER, "bgm", bgm))
+            except FileNotFoundError:
+                logger.warning("[AudioManager] BGM folder not found, skipping BGM loading")
 
-        # Clean SE channels
-        for name in list(cls._se_channel.keys()):
-            cls._se_channel[name] = [ch for ch in cls._se_channel[name] if ch.get_busy()]
-            if not cls._se_channel[name]:
-                del cls._se_channel[name]
-        
-        logger.debug("[AudioManager] Cleaned up finished channels")
+            # Loading all available BGS files
+            try:
+                for bgs in listdir(join(config.AUDIO_FOLDER, "bgs")):
+                    if bgs.lower().endswith(valid_extensions):
+                        filename = bgs.rsplit(".", 1)[0]
+                        cls.load_bgs(filename, join(config.AUDIO_FOLDER, "bgs", bgs))
+            except FileNotFoundError:
+                logger.warning("[AudioManager] BGS folder not found, skipping BGS loading")
+
+            # Loading all available ME files
+            try:
+                for me in listdir(join(config.AUDIO_FOLDER, "me")):
+                    if me.lower().endswith(valid_extensions):
+                        filename = me.rsplit(".", 1)[0]
+                        cls.load_me(filename, join(config.AUDIO_FOLDER, "me", me))
+            except FileNotFoundError:
+                logger.warning("[AudioManager] ME folder not found, skipping ME loading")
+
+            # Loading all available SE files
+            try:
+                for se in listdir(join(config.AUDIO_FOLDER, "se")):
+                    if se.lower().endswith(valid_extensions):
+                        filename = se.rsplit(".", 1)[0]
+                        cls.load_se(filename, join(config.AUDIO_FOLDER, "se", se))
+            except FileNotFoundError:
+                logger.warning("[AudioManager] SE folder not found, skipping SE loading")
+
+            logger.info("[AudioManager] AudioManager initialized")
+
+        except Exception as e:
+            logger.error(f"[AudioManager] Failed to initialize Pygame mixer: {e}")
+
+    # class method to update the audio manager
+    @classmethod
+    def update(cls) -> None:
+        """
+        Update the AudioManager - Clean up finished sounds and manage audio state
+        """
+        # Clean up finished BGS channels
+        for name, channels in list(cls._bgs_channels.items()):
+            cls._bgs_channels[name] = [c for c in channels if c.get_busy()]
+            if not cls._bgs_channels[name]:
+                del cls._bgs_channels[name]
+                logger.debug(f"[AudioManager] Cleaned up finished BGS <{name}>")
+
+        # Clean up finished ME channels
+        for name, channels in list(cls._me_channels.items()):
+            cls._me_channels[name] = [c for c in channels if c.get_busy()]
+            if not cls._me_channels[name]:
+                del cls._me_channels[name]
+                logger.debug(f"[AudioManager] Cleaned up finished ME <{name}>")
+
+        # Clean up finished SE channels
+        for name, channels in list(cls._se_channels.items()):
+            cls._se_channels[name] = [c for c in channels if c.get_busy()]
+            if not cls._se_channels[name]:
+                del cls._se_channels[name]
+                logger.debug(f"[AudioManager] Cleaned up finished SE <{name}>")

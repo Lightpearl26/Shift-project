@@ -64,9 +64,9 @@ class KeyMapping:
         self.DOWN: set[int] = config.KEYS_DOWN
         self.LEFT: set[int] = config.KEYS_LEFT
         self.RIGHT: set[int] = config.KEYS_RIGHT
-        self.PAUSE: set[int] = config.KEYS_PAUSE
-        self.SPRINT: set[int] = config.KEYS_SPRINT
         self.JUMP: set[int] = config.KEYS_JUMP
+        self.SPRINT: set[int] = config.KEYS_SPRINT
+        self.PAUSE: set[int] = config.KEYS_PAUSE
 
         # Track which keys were down last frame
         self._last_key_state: set[int] = set()
@@ -86,22 +86,22 @@ class KeyMapping:
             "DOWN": KeyState.RELEASED,
             "LEFT": KeyState.RELEASED,
             "RIGHT": KeyState.RELEASED,
-            "PAUSE": KeyState.RELEASED,
-            "SPRINT": KeyState.RELEASED,
             "JUMP": KeyState.RELEASED,
+            "SPRINT": KeyState.RELEASED,
+            "PAUSE": KeyState.RELEASED,
         }
 
         # Get all currently pressed keys
         current_down: set[int] = set()
-        
+
         for action, mapping in {
             "UP": self.UP,
             "DOWN": self.DOWN,
             "LEFT": self.LEFT,
             "RIGHT": self.RIGHT,
-            "PAUSE": self.PAUSE,
-            "SPRINT": self.SPRINT,
             "JUMP": self.JUMP,
+            "SPRINT": self.SPRINT,
+            "PAUSE": self.PAUSE,
         }.items():
             for scancode in mapping:
                 try:
@@ -133,7 +133,8 @@ class KeyMapping:
         inst = cls()
         for action, keys in mapping_dict.items():
             if hasattr(inst, action):
-                if any(not isinstance(k, int) or not 0 <= k < 512 for k in keys):
+                # Validate that all keys are valid integers (pygame key codes can be > 512)
+                if any(not isinstance(k, int) or k < 0 for k in keys):
                     logger.error(f"[KeyMapping] Invalid key codes in action '{action}'")
                     raise KeyError(f"Invalid key codes in action '{action}'")
                 setattr(inst, action, set(keys))
@@ -155,9 +156,9 @@ class GamepadMapping:
 
     def __init__(self) -> None:
         # Default button indices (common layout; can be remapped via from_dict)
-        self.SPRINT: set[int] = {10}  # RB / R1
-        self.JUMP: set[int] = {0}    # A / Cross
-        self.PAUSE: set[int] = {5, 1}   # Start / Options / B / Circle
+        self.JUMP: set[int] = {0}  # A / Cross
+        self.SPRINT: set[int] = {10}  # LB / L1
+        self.PAUSE: set[int] = {5, 1}   # Start / Cross
 
         # Direction config: D-Pad buttons (ZEROPLUS Pro5: UP=11, DOWN=12, LEFT=13, RIGHT=14)
         self._dpad_up: set[int] = {11}
@@ -183,9 +184,9 @@ class GamepadMapping:
             "DOWN": False,
             "LEFT": False,
             "RIGHT": False,
+            "JUMP": False,
             "SPRINT": False,
             "PAUSE": False,
-            "JUMP": False,
         }
 
     def _ensure_init(self) -> None:
@@ -208,17 +209,13 @@ class GamepadMapping:
 
     def _read_buttons_down(self) -> dict[str, bool]:
         down: dict[str, bool] = {
+            "JUMP": False,
             "SPRINT": False,
             "PAUSE": False,
-            "JUMP": False,
         }
         if not self._joystick:
             return down
         try:
-            for btn in self.SPRINT:
-                if self._joystick.get_button(btn):
-                    down["SPRINT"] = True
-                    break
             for btn in self.PAUSE:
                 if self._joystick.get_button(btn):
                     down["PAUSE"] = True
@@ -226,6 +223,10 @@ class GamepadMapping:
             for btn in self.JUMP:
                 if self._joystick.get_button(btn):
                     down["JUMP"] = True
+                    break
+            for btn in self.SPRINT:
+                if self._joystick.get_button(btn):
+                    down["SPRINT"] = True
                     break
         except Exception as exc:
             logger.error(f"[GamepadMapping] Button read error: {exc}")
@@ -442,10 +443,6 @@ class EventManager:
         """
         Update the current key states.
         """
-        # Pump events to refresh pygame's input state including joystick
-        import pygame
-        pygame.event.pump()
-        
         # update key_state
         keys = key_state()
         kb_states = cls.key_mapping.serialize(keys)
@@ -455,9 +452,9 @@ class EventManager:
         for action, kb in kb_states.items():
             gp = gp_states.get(action, KeyState.RELEASED)
             # Merge precedence: PRESSED > HELD > RELEASED
-            if kb == KeyState.PRESSED or gp == KeyState.PRESSED:
+            if KeyState.PRESSED in (kb, gp):
                 merged[action] = KeyState.PRESSED
-            elif kb == KeyState.HELD or gp == KeyState.HELD:
+            elif KeyState.HELD in (kb, gp):
                 merged[action] = KeyState.HELD
             else:
                 merged[action] = KeyState.RELEASED
