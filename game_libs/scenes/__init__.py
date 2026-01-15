@@ -13,7 +13,9 @@ ________________________________________________________________________________
 """
 
 from .base import BaseScene
+from .welcome import WelcomeScene
 
 __all__ = [
     "BaseScene",
+    "WelcomeScene"
 ]
