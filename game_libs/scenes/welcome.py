@@ -15,7 +15,7 @@ ________________________________________________________________________________
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 from os.path import join
-
+from pygame import display # A SUPPR SI TRANSI OKAY
 # import assets
 from ..assets_cache import AssetsCache
 
@@ -29,7 +29,7 @@ from .base import BaseScene
 from ..managers.event import KeyState
 
 # Import Fade transitions
-from ..transitions import FadeIn, FadeOut
+from ..transitions import FadeIn, FadeOut, Disintegrate, Integrate, DustIn, DustOut
 
 # import logger
 from .. import logger
@@ -76,6 +76,7 @@ class WelcomeScene(BaseScene):
         """Appelé à chaque fois qu'on quitte la scène"""
         # Nettoyer, arrêter la musique, etc.
         AudioManager.stop_bgm(fadeout_ms=500)
+        
 
     def handle_events(self):
         """
@@ -88,8 +89,10 @@ class WelcomeScene(BaseScene):
             AudioManager.play_se("cursor_select")
             self.scene_manager.change_scene(
                 "MainMenu",
-                transition_in=FadeIn(500),
-                transition_out=FadeOut(500)
+                #transition_in=FadeIn(500),
+                #transition_out=FadeOut(500)
+                transition_in = Integrate(duration=2000, tile_size=40),
+                transition_out = Disintegrate(duration=2000, tile_size=40)
             )
 
     def update(self, dt: float):

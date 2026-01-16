@@ -14,10 +14,16 @@ ________________________________________________________________________________
 from .base import BaseTransition
 from .fade import FadeIn, FadeOut
 from .video import VideoTransition
+from .disintegrate import Disintegrate, Integrate
+from .dust import DustIn, DustOut
 
 __all__ = [
     "BaseTransition",
     "FadeIn",
     "FadeOut",
     "VideoTransition",
+    "Disintegrate",
+    "Integrate",
+    "DustIn",
+    "DustOut"
 ]
