@@ -127,7 +127,8 @@ class MainMenuScene(BaseScene):
         # Render title
         if self._title_font:
             title_surf = self._title_font.render(self.title, True, (255, 255, 255))
-            title_rect = title_surf.get_rect(center=(surface.get_width() // 2, surface.get_height() // 4))
+            title_rect = title_surf.get_rect(center=(surface.get_width() // 2,
+                                                     surface.get_height() // 4))
             surface.blit(title_surf, title_rect)
 
         # Render options
@@ -136,5 +137,6 @@ class MainMenuScene(BaseScene):
                 text = self._options_font.render(option, True, (155, 255, 55))
             else:
                 text = self._options_font.render(option, True, (255, 255, 255))
-            text_rect = text.get_rect(topleft=(surface.get_width()* 2 // 3, surface.get_height() // 2 + i * 40))
+            text_rect = text.get_rect(topleft=(surface.get_width()* 2 // 3,
+                                               surface.get_height() // 2 + i * 40))
             surface.blit(text, text_rect)
