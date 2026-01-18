@@ -15,7 +15,7 @@ ________________________________________________________________________________
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 from os.path import join
-from pygame import display # A SUPPR SI TRANSI OKAY
+
 # import assets
 from ..assets_cache import AssetsCache
 
@@ -29,7 +29,7 @@ from .base import BaseScene
 from ..managers.event import KeyState
 
 # Import Fade transitions
-from ..transitions import FadeIn, FadeOut, Disintegrate, Integrate, DustIn, DustOut
+from ..transitions import FadeIn, FadeOut
 
 # import logger
 from .. import logger
@@ -76,7 +76,6 @@ class WelcomeScene(BaseScene):
         """Appelé à chaque fois qu'on quitte la scène"""
         # Nettoyer, arrêter la musique, etc.
         AudioManager.stop_bgm(fadeout_ms=500)
-        
 
     def handle_events(self):
         """
@@ -89,10 +88,8 @@ class WelcomeScene(BaseScene):
             AudioManager.play_se("cursor_select")
             self.scene_manager.change_scene(
                 "MainMenu",
-                #transition_in=FadeIn(500),
-                #transition_out=FadeOut(500)
-                transition_in = Integrate(duration=2000, tile_size=40),
-                transition_out = Disintegrate(duration=2000, tile_size=40)
+                transition_in=FadeIn(500),
+                transition_out=FadeOut(500)
             )
 
     def update(self, dt: float):
@@ -112,12 +109,14 @@ class WelcomeScene(BaseScene):
         # Render title
         if self._title_font:
             title_surf = self._title_font.render(self.title, True, (255, 255, 255))
-            title_rect = title_surf.get_rect(center=(surface.get_width() // 2, surface.get_height() // 3))
+            title_rect = title_surf.get_rect(center=(surface.get_width() // 2,
+                                                     surface.get_height() // 3))
             surface.blit(title_surf, title_rect)
 
         # Render prompt with blinking effect
         if self._prompt_font:
             if self._elapsed_time % self._blink_interval < 0.7 * self._blink_interval:
                 prompt_surf = self._prompt_font.render(self.prompt, True, (255, 255, 255))
-                prompt_rect = prompt_surf.get_rect(center=(surface.get_width() // 2, surface.get_height() * 2 // 3))
+                prompt_rect = prompt_surf.get_rect(center=(surface.get_width() // 2,
+                                                           surface.get_height() * 2 // 3))
                 surface.blit(prompt_surf, prompt_rect)
