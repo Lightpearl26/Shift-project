@@ -24,9 +24,6 @@ from pygame import Rect
 # import base transition
 from .base import BaseTransition
 
-# import logger
-from .. import logger
-
 if TYPE_CHECKING:
     pass
 
