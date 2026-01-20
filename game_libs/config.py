@@ -31,6 +31,7 @@ from pygame import (
 )
 
 # ----- System constants ----- #
+LOG: bool = True
 LOG_DEBUG: bool = False
 TPS_MAX: int = 20 # max ticks per second
 UDP_LISTENING_PORT: int = 2802

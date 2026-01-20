@@ -14,8 +14,16 @@ ________________________________________________________________________________
 from .base import BaseTransition
 from .fade import FadeIn, FadeOut
 from .video import VideoTransition
-from .particles import DisintegrateRight, IntegrateRight, DisintegrateLeft, IntegrateLeft
-from .particles import DisintegrateUp, IntegrateUp, DisintegrateDown, IntegrateDown
+from .particles import (
+    DisintegrateRight,
+    IntegrateRight,
+    DisintegrateLeft,
+    IntegrateLeft,
+    DisintegrateUp,
+    IntegrateUp,
+    DisintegrateDown,
+    IntegrateDown,
+)
 
 __all__ = [
     "BaseTransition",

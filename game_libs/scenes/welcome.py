@@ -29,7 +29,8 @@ from .base import BaseScene
 from ..managers.event import KeyState
 
 # Import Fade transitions
-from ..transitions import FadeIn, FadeOut
+from ..transitions import DisintegrateRight, IntegrateRight
+from ..transitions.easing import ease_in_out_expo
 
 # import logger
 from .. import logger
@@ -88,8 +89,8 @@ class WelcomeScene(BaseScene):
             AudioManager.play_se("cursor_select")
             self.scene_manager.change_scene(
                 "MainMenu",
-                transition_in=FadeIn(500),
-                transition_out=FadeOut(500)
+                transition_in=IntegrateRight(1500, easing_func=ease_in_out_expo),
+                transition_out=DisintegrateRight(1500, easing_func=ease_in_out_expo)
             )
 
     def update(self, dt: float):

@@ -36,7 +36,10 @@ class FadeIn(BaseTransition):
     """
     Fade In Transition
     """
-    def __init__(self, duration: float = 1000.0, color: tuple[int, int, int] = (0, 0, 0)) -> None:
+    def __init__(self,
+                 duration: float = 1000.0,
+                 color: tuple[int, int, int] = (0, 0, 0),
+                 ease_func: callable=lambda t: t) -> None:
         """
         Initialize the Fade In transition.
 
@@ -46,6 +49,7 @@ class FadeIn(BaseTransition):
         """
         super().__init__(duration)
         self._color = color
+        self._ease_func = ease_func
         logger.info(f"[FadeIn] Initialized with duration: {duration}ms and color: {color}")
 
     def render(self, surface: Surface) -> None:
@@ -55,7 +59,8 @@ class FadeIn(BaseTransition):
         args:
             surface (Surface): The surface to render the transition on.
         """
-        alpha = int((1.0 - self.progress) * 255)
+        value = self._ease_func(self.progress)
+        alpha = int((1.0 - value) * 255)
         fade_surface = Surface(surface.get_size(), SRCALPHA)
         fade_surface.fill((*self._color, alpha))
         surface.blit(fade_surface, (0, 0))
@@ -66,7 +71,10 @@ class FadeOut(BaseTransition):
     """
     Fade Out Transition
     """
-    def __init__(self, duration: float = 1000.0, color: tuple[int, int, int] = (0, 0, 0)) -> None:
+    def __init__(self,
+                 duration: float = 1000.0, 
+                 color: tuple[int, int, int] = (0, 0, 0),
+                 ease_func: callable=lambda t: t) -> None:
         """
         Initialize the Fade Out transition.
 
@@ -76,6 +84,7 @@ class FadeOut(BaseTransition):
         """
         super().__init__(duration)
         self._color = color
+        self._ease_func = ease_func
         logger.info(f"[FadeOut] Initialized with duration: {duration}ms and color: {color}")
 
     def render(self, surface: Surface) -> None:
@@ -85,7 +94,8 @@ class FadeOut(BaseTransition):
         args:
             surface (Surface): The surface to render the transition on.
         """
-        alpha = int(self.progress * 255)
+        value = self._ease_func(self.progress)
+        alpha = int(value * 255)
         fade_surface = Surface(surface.get_size(), SRCALPHA)
         fade_surface.fill((*self._color, alpha))
         surface.blit(fade_surface, (0, 0))

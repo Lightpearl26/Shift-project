@@ -1,571 +1,225 @@
 # -*- coding: utf-8 -*-
 
 """
-game_libs.transition.fade
+game_libs.transitions.particles_simple
 ___________________________________________________________________________________________________
 File infos:
-
     - Author: Justine Roux
-    - Version: 1.0
+    - Version: 2.2 (Ultra-simplified)
 ___________________________________________________________________________________________________
 Description:
-    This module defines Particles as scene transition.
+    Minimalist particle transitions without particle classes.
+    Pure data + logic approach for maximum simplicity.
 ___________________________________________________________________________________________________
-@copyright: Justine Roux 2026
+@copyright: Justine Roux 2026 (patch by Franck Lafiteau)
 """
-# import needed built-in modules
-from __future__ import annotations
-from typing import TYPE_CHECKING
-import random
 
-# import pygame modules
+# Import built-in modules
+from __future__ import annotations
+from typing import TYPE_CHECKING, Callable, NamedTuple
+from random import uniform
+from enum import Enum
+
+# Import pygame components
+from pygame.display import get_init
 from pygame import Rect
 
-# import base transition
-from .base import BaseTransition
+# Import Basetransition
+from . import BaseTransition
+
+# Import logger
+from .. import logger
 
 if TYPE_CHECKING:
-    pass
+    from pygame import Surface
 
-# DEBUG NOTE:
-# The screen ratio is approx 1.77 (1920/1080).
-# To ensure the transition feels like it takes the exact same amount of time
-# vertically as it does horizontally, vertical speeds are scaled down by ~1.77.
-
-# 1. HORIZONTAL SETTINGS (Reference Width ~1920px)
-SPEED_OUT_H = 20.0  # Base speed for the exiting scene (chased by the new scene)
-SPEED_IN_H = 35.0   # Base speed for the entering scene (faster to eat the void)
-CHAOS_H = 15.0      # Amplitude of random speed variance (creates debris effect)
-
-# 2. VERTICAL SETTINGS (Reference Height ~1080px)
-# DEBUG: Calculated as Horizontal / 1.77
-SPEED_OUT_V = 11.25 # Slower than H to traverse a shorter distance in same time
-SPEED_IN_V = 19.75
-CHAOS_V = 8.5       # Reduced chaos to maintain consistent debris density visually
-
-TILE_SIZE = 20
-DURATION = 1500
-
-# --- CHAOS DELAY SETTINGS ---
-# Controls the shape of the "wave" vs the "random popping".
-# DEBUG: If the line looks too straight, increase DELAY_NOISE.
-# DEBUG: If the wave is too slow/fast, adjust DELAY_GRADIENT.
-DELAY_GRADIENT = 0.45
-DELAY_NOISE = 0.25
-
-# ==============================================================================
-# 1. DIRECTION: RIGHT (Wipe Left -> Right)
-# ==============================================================================
-
-class DisintegrateRightParticle:
+# ----- Enums & Constants ----- #
+Tile = NamedTuple("Tile", [("src_rect", Rect), ("delay", float)])
+class Direction(Enum):
     """
-    Represents a single tile of the EXITING scene moving towards the RIGHT.
-    Simulates a debris particle detaching from the main image.
+    Direction Enum for particle movement.
     """
-    def __init__(self, image, x, y, delay, screen_width):
-        """
-        Initialize the particle.
-        
-        Args:
-            image (Surface): The cropped tile image.
-            x, y (int): Starting coordinates.
-            delay (float): Time to wait before moving (0.0 to 1.0).
-            screen_width (int): Boundary for culling.
-        """
-        self.image = image
-        self.rect = image.get_rect(topleft=(x, y))
-        self.x = x
-        self.y = y
-        self.screen_width = screen_width
-        
-        # DEBUG: Velocity = Base Speed + Random Chaos.
-        # This variance ensures tiles don't move as a solid block.
-        self.velocity = SPEED_OUT_H + random.uniform(0, CHAOS_H)
-        self.delay = delay
+    RIGHT = (1, 0)
+    LEFT = (-1, 0)
+    DOWN = (0, 1)
+    UP = (0, -1)
 
-    def update(self, progress):
+
+# ----- Particle Transition Base Class ----- #
+class Particletransition(BaseTransition):
+    """
+    Base class for particle transitions.
+    """
+    def __init__(self,
+                 direction: Direction = Direction.RIGHT,
+                 mode: str = "out",
+                 duration: float = 1500,
+                 tile_size: int = 10,
+                 easing_func: Callable[[float], float] = lambda t: t):
+        BaseTransition.__init__(self, duration)
+        self.direction = direction
+        self.mode = mode
+        self.tile_size = tile_size
+        self.easing_func = easing_func
+        self.tiles: list[Tile] = []
+        self.atlas: Surface = None
+        logger.info(f"[Particletransition] Initialized with mode: {self.mode},"
+                    f" direction: {self.direction},"
+                    f" tile_size: {self.tile_size},"
+                    f" duration: {self.duration}ms")
+
+    def start(self):
+        BaseTransition.start(self)
+        self.tiles.clear()
+        self.atlas = None
+
+    def _generate(self, surface: Surface):
         """
-        Updates position based on transition progress.
-        Logic: Wait for delay -> Move horizontally.
+        Generate particles from surface content.
         """
-        if progress < self.delay :
+        if not get_init():
+            logger.error("[Particletransition] Pygame display not initialized.")
             return
-        self.x += self.velocity
-        self.rect.topleft = (self.x, self.y)
 
-    def draw(self, surface):
-        """Draws the particle only if it hasn't left the screen boundary."""
-        if self.x < self.screen_width:
-            surface.blit(self.image, self.rect)
+        self.atlas = surface.convert_alpha()
 
-class IntegrateRightParticle:
-    """
-    Represents a single tile of the ENTERING scene moving towards the RIGHT.
-    Simulates a chaotic storm reforming into a solid image.
-    """
-    def __init__(self, image, target_x, target_y, delay):
-        """
-        Args:
-            target_x, target_y: The final resting position of the tile.
-        """
-        self.image = image
-        self.rect = image.get_rect()
-        self.target_x = target_x
-        self.target_y = target_y
-        # Start position: Just outside the left edge of the screen
-        self.start_x = -TILE_SIZE
-        self.x = self.start_x
-        self.y = target_y
-        # DEBUG: We use Chaos here too so the entry looks organic, not rigid.
-        self.velocity = SPEED_IN_H + random.uniform(0, CHAOS_H)
-        self.delay = delay
-        self.arrived = False
+        width, height = self.atlas.get_size()
+        cols = (width + self.tile_size - 1) // self.tile_size
+        rows = (height + self.tile_size - 1) // self.tile_size
 
-    def update(self, progress):
+        for row in range(rows):
+            for col in range(cols):
+                x = col * self.tile_size
+                y = row * self.tile_size
+                w = min(self.tile_size, width - x)
+                h = min(self.tile_size, height - y)
+                src_rect = Rect(x, y, w, h)
+
+                # Calculate delay based on position and randomness
+                dx, dy = self.direction.value
+                norm = abs(dx) * (x / width) + abs(dy) * (y / height)
+                pos_factor = 1.0 - norm if (dx < 0 or dy < 0) else norm
+                delay = pos_factor * 0.45 + uniform(0, 0.25)
+
+                self.tiles.append(Tile(src_rect, delay))
+
+        logger.info(f"[Particletransition] Generated {len(self.tiles)} tiles.")
+
+    def render(self, surface):
         """
-        Moves the particle towards its target. 
-        Snaps to the exact pixel once it reaches or passes the target.
+        Render the particle transition on the given surface.
         """
-        if progress < self.delay :
+        if not self._is_playing:
             return
-        if self.arrived :
-            return
-        self.x += self.velocity
-        # SNAP LOGIC: We are moving Right (positive), so if x >= target, stop.
-        if self.x >= self.target_x:
-            self.x = self.target_x
-            self.arrived = True
-        self.rect.topleft = (self.x, self.y)
 
-    def draw(self, surface):
-        """Draws only if the particle has entered the screen (passed start_x)."""
-        if self.x > self.start_x:
-            surface.blit(self.image, self.rect)
+        if not self.atlas:
+            self._generate(surface)
 
-class DisintegrateRight(BaseTransition):
+        surface.fill((0, 0, 0))  # Clear surface
+
+        for tile in self.tiles:
+            t = (self.progress - tile.delay) / (1.0 - tile.delay) if tile.delay < 1.0 else 1.0
+            t = max(0.0, min(1.0, t))
+
+            if self.mode == "out" and t == 1.0:
+                continue
+            if self.mode == "in" and t == 0.0:
+                continue
+
+            t = self.easing_func(t)
+            dx, dy = self.direction.value
+            ox, oy = tile.src_rect.topleft
+            if self.mode == "out":
+                end_x = (surface.get_width() if dx > 0 else -self.tile_size) if dx != 0 else ox
+                end_y = (surface.get_height() if dy > 0 else -self.tile_size) if dy != 0 else oy
+                x = ox + (end_x - ox) * t
+                y = oy + (end_y - oy) * t
+            else:  # mode == "in"
+                start_x = (-self.tile_size if dx > 0 else surface.get_width()) if dx != 0 else ox
+                start_y = (-self.tile_size if dy > 0 else surface.get_height()) if dy != 0 else oy
+                x = start_x + (ox - start_x) * t
+                y = start_y + (oy - start_y) * t
+
+            surface.blit(self.atlas, (x, y), tile.src_rect)
+
+
+# ----- Convienience Subclasses ----- #
+class DisintegrateRight(Particletransition):
     """
-    Transition Effect: Disintegrates the old scene from Left to Right.
-    Looks like the screen is turning to dust.
+    Particle transition for 'out' mode.
     """
-    def __init__(self, duration: float = DURATION, tile_size: int = TILE_SIZE):
-        super().__init__(duration)
-        self.tile_size = tile_size; self.particles = []; self.generated = False
+    def __init__(self,
+                 duration: float = 1500,
+                 easing_func: Callable[[float], float] = lambda t: t):
+        super().__init__(Direction.RIGHT, "out", duration, 10, easing_func)
+        logger.info("[DisintegrateRight] Initialized.")
 
-    def start(self): 
-        """Resets the transition state."""
-        super().start(); self.generated = False; self.particles = []
-
-    def _generate(self, surface):
-        """
-        Slices the input surface into tiles and assigns Delay/Velocity.
-        """
-        width, height = surface.get_size()
-        cols, rows = width // self.tile_size, height // self.tile_size
-        src = surface.copy()
-        for row in range(rows):
-            for col in range(cols):
-                x, y = col * self.tile_size, row * self.tile_size
-                rect = Rect(x, y, self.tile_size, self.tile_size)
-                try: sub = src.subsurface(rect).copy()
-                except ValueError: continue
-                
-                # DEBUG: Delay Calculation
-                # norm_x (0.0 to 1.0) * GRADIENT creates the wave direction.
-                # + random(NOISE) adds the "crumbling" effect.
-                norm_x = x / width
-                delay = (norm_x * DELAY_GRADIENT) + random.uniform(0, DELAY_NOISE)
-                
-                self.particles.append(DisintegrateRightParticle(sub, x, y, delay, width))
-        self.generated = True
-
-    def render(self, surface):
-        """Main render loop: Generate -> Clear Screen -> Update Particles."""
-        if not self.generated: self._generate(surface); surface.fill((0,0,0)); return
-        surface.fill((0, 0, 0))
-        for p in self.particles: p.update(self.progress); p.draw(surface)
-
-class IntegrateRight(BaseTransition):
+class IntegrateRight(Particletransition):
     """
-    Transition Effect: Reassembles the new scene from Left to Right.
-    Looks like a chaotic storm solidifying into the new image.
+    Particle transition for 'in' mode.
     """
-    def __init__(self, duration: float = DURATION, tile_size: int = TILE_SIZE):
-        super().__init__(duration)
-        self.tile_size = tile_size; self.particles = []; self.generated = False
-    
-    def start(self): 
-        super().start(); self.generated = False; self.particles = []
+    def __init__(self,
+                 duration: float = 1500,
+                 easing_func: Callable[[float], float] = lambda t: t):
+        super().__init__(Direction.RIGHT, "in", duration, 10, easing_func)
+        logger.info("[IntegrateRight] Initialized.")
 
-    def _generate(self, surface):
-        width, height = surface.get_size()
-        cols, rows = width // self.tile_size, height // self.tile_size
-        src = surface.copy()
-        for row in range(rows):
-            for col in range(cols):
-                x, y = col * self.tile_size, row * self.tile_size
-                rect = Rect(x, y, self.tile_size, self.tile_size)
-                try: sub = src.subsurface(rect).copy()
-                except ValueError: continue
-                
-                norm_x = x / width
-                # DEBUG: The '+ 0.05' offset ensures the "In" particles start slightly 
-                # after the "Out" particles to prevent visual clipping at frame 0.
-                delay = (norm_x * DELAY_GRADIENT) + random.uniform(0, DELAY_NOISE) + 0.05
-                
-                self.particles.append(IntegrateRightParticle(sub, x, y, delay))
-        self.generated = True
+class DisintegrateLeft(Particletransition):
+    """
+    Particle transition for 'out' mode.
+    """
+    def __init__(self,
+                 duration: float = 1500,
+                 easing_func: Callable[[float], float] = lambda t: t):
+        super().__init__(Direction.LEFT, "out", duration, 10, easing_func)
+        logger.info("[DisintegrateLeft] Initialized.")
 
-    def render(self, surface):
-        if not self.generated: self._generate(surface); surface.fill((0,0,0)); return
-        surface.fill((0, 0, 0))
-        for p in self.particles: p.update(self.progress); p.draw(surface)
+class IntegrateLeft(Particletransition):
+    """
+    Particle transition for 'in' mode.
+    """
+    def __init__(self,
+                 duration: float = 1500,
+                 easing_func: Callable[[float], float] = lambda t: t):
+        super().__init__(Direction.LEFT, "in", duration, 10, easing_func)
+        logger.info("[IntegrateLeft] Initialized.")
 
+class DisintegrateDown(Particletransition):
+    """
+    Particle transition for 'out' mode.
+    """
+    def __init__(self,
+                 duration: float = 1500,
+                 easing_func: Callable[[float], float] = lambda t: t):
+        super().__init__(Direction.DOWN, "out", duration, 10, easing_func)
+        logger.info("[DisintegrateDown] Initialized.")
 
-# ==============================================================================
-# 2. DIRECTION: LEFT (Wipe Right -> Left)
-# ==============================================================================
+class IntegrateDown(Particletransition):
+    """
+    Particle transition for 'in' mode.
+    """
+    def __init__(self,
+                 duration: float = 1500,
+                 easing_func: Callable[[float], float] = lambda t: t):
+        super().__init__(Direction.DOWN, "in", duration, 10, easing_func)
+        logger.info("[IntegrateDown] Initialized.")
 
-class DisintegrateLeftParticle:
-    """Exiting particle moving LEFT (Negative Velocity)."""
-    def __init__(self, image, x, y, delay, screen_width):
-        self.image = image
-        self.rect = image.get_rect(topleft=(x, y))
-        self.x = x
-        self.y = y
-        # DEBUG: Negative speed to move Left. Uses Horizontal constants.
-        self.velocity = -(SPEED_OUT_H + random.uniform(0, CHAOS_H))
-        self.delay = delay
+class DisintegrateUp(Particletransition):
+    """
+    Particle transition for 'out' mode.
+    """
+    def __init__(self,
+                 duration: float = 1500,
+                 easing_func: Callable[[float], float] = lambda t: t):
+        super().__init__(Direction.UP, "out", duration, 10, easing_func)
+        logger.info("[DisintegrateUp] Initialized.")
 
-    def update(self, progress):
-        if progress < self.delay: return
-        self.x += self.velocity
-        self.rect.topleft = (self.x, self.y)
-
-    def draw(self, surface):
-        # DEBUG: Only draw if the tile is still physically on screen (x + size > 0)
-        if self.x + TILE_SIZE > 0:
-            surface.blit(self.image, self.rect)
-
-class IntegrateLeftParticle:
-    """Entering particle moving LEFT (Negative Velocity)."""
-    def __init__(self, image, target_x, target_y, delay, screen_width):
-        self.image = image
-        self.rect = image.get_rect()
-        self.target_x = target_x
-        self.target_y = target_y
-        self.start_x = screen_width # Start outside Right edge
-        self.x = self.start_x
-        self.y = target_y
-        # DEBUG: Negative speed to move Left.
-        self.velocity = -(SPEED_IN_H + random.uniform(0, CHAOS_H))
-        self.delay = delay
-        self.arrived = False
-
-    def update(self, progress):
-        if progress < self.delay: return
-        if self.arrived: return
-        self.x += self.velocity
-        
-        # SNAP LOGIC: Moving Left (negative), so if x <= target, stop.
-        if self.x <= self.target_x:
-            self.x = self.target_x
-            self.arrived = True
-        self.rect.topleft = (self.x, self.y)
-
-    def draw(self, surface):
-        if self.x < self.start_x:
-            surface.blit(self.image, self.rect)
-
-class DisintegrateLeft(BaseTransition):
-    """Transition: Disintegrates Right to Left."""
-    def __init__(self, duration: float = DURATION, tile_size: int = TILE_SIZE):
-        super().__init__(duration)
-        self.tile_size = tile_size; self.particles = []; self.generated = False
-    def start(self): super().start(); self.generated = False; self.particles = []
-
-    def _generate(self, surface):
-        width, height = surface.get_size()
-        cols, rows = width // self.tile_size, height // self.tile_size
-        src = surface.copy()
-        for row in range(rows):
-            for col in range(cols):
-                x, y = col * self.tile_size, row * self.tile_size
-                rect = Rect(x, y, self.tile_size, self.tile_size)
-                try: sub = src.subsurface(rect).copy()
-                except ValueError: continue
-                
-                norm_x = x / width
-                # DEBUG: Wave direction inverted (1.0 - norm_x) for Right-to-Left
-                delay = ((1.0 - norm_x) * DELAY_GRADIENT) + random.uniform(0, DELAY_NOISE)
-                
-                self.particles.append(DisintegrateLeftParticle(sub, x, y, delay, width))
-        self.generated = True
-
-    def render(self, surface):
-        if not self.generated: self._generate(surface); surface.fill((0,0,0)); return
-        surface.fill((0, 0, 0))
-        for p in self.particles: p.update(self.progress); p.draw(surface)
-
-class IntegrateLeft(BaseTransition):
-    """Transition: Reassembles Right to Left."""
-    def __init__(self, duration: float = DURATION, tile_size: int = TILE_SIZE):
-        super().__init__(duration)
-        self.tile_size = tile_size; self.particles = []; self.generated = False
-    def start(self): super().start(); self.generated = False; self.particles = []
-
-    def _generate(self, surface):
-        width, height = surface.get_size()
-        cols, rows = width // self.tile_size, height // self.tile_size
-        src = surface.copy()
-        for row in range(rows):
-            for col in range(cols):
-                x, y = col * self.tile_size, row * self.tile_size
-                rect = Rect(x, y, self.tile_size, self.tile_size)
-                try: sub = src.subsurface(rect).copy()
-                except ValueError: continue
-                
-                norm_x = x / width
-                # DEBUG: Chaotic delay with inverted direction + offset
-                delay = ((1.0 - norm_x) * DELAY_GRADIENT) + random.uniform(0, DELAY_NOISE) + 0.05
-                
-                self.particles.append(IntegrateLeftParticle(sub, x, y, delay, width))
-        self.generated = True
-
-    def render(self, surface):
-        if not self.generated: self._generate(surface); surface.fill((0,0,0)); return
-        surface.fill((0, 0, 0))
-        for p in self.particles: p.update(self.progress); p.draw(surface)
-
-
-# ==============================================================================
-# 3. DIRECTION: DOWN (Wipe Top -> Bottom)
-# ==============================================================================
-
-class DisintegrateDownParticle:
-    """Exiting particle moving DOWN (Positive Y)."""
-    def __init__(self, image, x, y, delay, screen_height):
-        self.image = image
-        self.rect = image.get_rect(topleft=(x, y))
-        self.x = x
-        self.y = y
-        self.screen_height = screen_height
-        
-        # DEBUG: Uses VERTICAL speed/chaos settings (Scaled by 1.77)
-        self.velocity = SPEED_OUT_V + random.uniform(0, CHAOS_V) 
-        self.delay = delay
-
-    def update(self, progress):
-        if progress < self.delay: return
-        self.y += self.velocity
-        self.rect.topleft = (self.x, self.y)
-
-    def draw(self, surface):
-        if self.y < self.screen_height:
-            surface.blit(self.image, self.rect)
-
-class IntegrateDownParticle:
-    """Entering particle moving DOWN (Positive Y)."""
-    def __init__(self, image, target_x, target_y, delay):
-        self.image = image
-        self.rect = image.get_rect()
-        self.target_x = target_x
-        self.target_y = target_y
-        self.start_y = -TILE_SIZE # Start just above Top edge
-        self.x = target_x
-        self.y = self.start_y
-        
-        # DEBUG: Vertical Speed + Vertical Chaos
-        self.velocity = SPEED_IN_V + random.uniform(0, CHAOS_V)
-        self.delay = delay
-        self.arrived = False
-
-    def update(self, progress):
-        if progress < self.delay: return
-        if self.arrived: return
-        self.y += self.velocity
-        
-        # SNAP LOGIC: Moving Down (positive), so if y >= target, stop.
-        if self.y >= self.target_y:
-            self.y = self.target_y
-            self.arrived = True
-        self.rect.topleft = (self.x, self.y)
-
-    def draw(self, surface):
-        if self.y > self.start_y:
-            surface.blit(self.image, self.rect)
-
-class DisintegrateDown(BaseTransition):
-    """Transition: Disintegrates Top to Bottom."""
-    def __init__(self, duration: float = DURATION, tile_size: int = TILE_SIZE):
-        super().__init__(duration)
-        self.tile_size = tile_size; self.particles = []; self.generated = False
-    def start(self): super().start(); self.generated = False; self.particles = []
-
-    def _generate(self, surface):
-        width, height = surface.get_size()
-        cols, rows = width // self.tile_size, height // self.tile_size
-        src = surface.copy()
-        for row in range(rows):
-            for col in range(cols):
-                x, y = col * self.tile_size, row * self.tile_size
-                rect = Rect(x, y, self.tile_size, self.tile_size)
-                try: sub = src.subsurface(rect).copy()
-                except ValueError: continue
-                
-                # DEBUG: norm_y is used for Vertical direction
-                norm_y = y / height
-                delay = (norm_y * DELAY_GRADIENT) + random.uniform(0, DELAY_NOISE)
-                
-                self.particles.append(DisintegrateDownParticle(sub, x, y, delay, height))
-        self.generated = True
-
-    def render(self, surface):
-        if not self.generated: self._generate(surface); surface.fill((0,0,0)); return
-        surface.fill((0, 0, 0))
-        for p in self.particles: p.update(self.progress); p.draw(surface)
-
-class IntegrateDown(BaseTransition):
-    """Transition: Reassembles Top to Bottom."""
-    def __init__(self, duration: float = DURATION, tile_size: int = TILE_SIZE):
-        super().__init__(duration)
-        self.tile_size = tile_size; self.particles = []; self.generated = False
-    def start(self): super().start(); self.generated = False; self.particles = []
-
-    def _generate(self, surface):
-        width, height = surface.get_size()
-        cols, rows = width // self.tile_size, height // self.tile_size
-        src = surface.copy()
-        for row in range(rows):
-            for col in range(cols):
-                x, y = col * self.tile_size, row * self.tile_size
-                rect = Rect(x, y, self.tile_size, self.tile_size)
-                try: sub = src.subsurface(rect).copy()
-                except ValueError: continue
-                
-                norm_y = y / height
-                # DEBUG: Chaotic delay with vertical gradient + offset
-                delay = (norm_y * DELAY_GRADIENT) + random.uniform(0, DELAY_NOISE) + 0.05
-                
-                self.particles.append(IntegrateDownParticle(sub, x, y, delay))
-        self.generated = True
-
-    def render(self, surface):
-        if not self.generated: self._generate(surface); surface.fill((0,0,0)); return
-        surface.fill((0, 0, 0))
-        for p in self.particles: p.update(self.progress); p.draw(surface)
-
-
-# ==============================================================================
-# 4. DIRECTION: UP (Wipe Bottom -> Top)
-# ==============================================================================
-
-class DisintegrateUpParticle:
-    """Exiting particle moving UP (Negative Y)."""
-    def __init__(self, image, x, y, delay, screen_height):
-        self.image = image
-        self.rect = image.get_rect(topleft=(x, y))
-        self.x = x
-        self.y = y
-        # DEBUG: Vertical Speed (Negative) + Vertical Chaos
-        self.velocity = -(SPEED_OUT_V + random.uniform(0, CHAOS_V))
-        self.delay = delay
-
-    def update(self, progress):
-        if progress < self.delay: return
-        self.y += self.velocity
-        self.rect.topleft = (self.x, self.y)
-
-    def draw(self, surface):
-        if self.y + TILE_SIZE > 0:
-            surface.blit(self.image, self.rect)
-
-class IntegrateUpParticle:
-    """Entering particle moving UP (Negative Y)."""
-    def __init__(self, image, target_x, target_y, delay, screen_height):
-        self.image = image
-        self.rect = image.get_rect()
-        self.target_x = target_x
-        self.target_y = target_y
-        self.start_y = screen_height # Start just below Bottom edge
-        self.x = target_x
-        self.y = self.start_y
-        
-        # DEBUG: Vertical Speed (Negative) + Vertical Chaos
-        self.velocity = -(SPEED_IN_V + random.uniform(0, CHAOS_V))
-        self.delay = delay
-        self.arrived = False
-
-    def update(self, progress):
-        if progress < self.delay: return
-        if self.arrived: return
-        self.y += self.velocity
-        
-        # SNAP LOGIC: Moving Up (negative), so if y <= target, stop.
-        if self.y <= self.target_y:
-            self.y = self.target_y
-            self.arrived = True
-        self.rect.topleft = (self.x, self.y)
-
-    def draw(self, surface):
-        if self.y < self.start_y:
-            surface.blit(self.image, self.rect)
-
-class DisintegrateUp(BaseTransition):
-    """Transition: Disintegrates Bottom to Top."""
-    def __init__(self, duration: float = DURATION, tile_size: int = TILE_SIZE):
-        super().__init__(duration)
-        self.tile_size = tile_size; self.particles = []; self.generated = False
-    def start(self): super().start(); self.generated = False; self.particles = []
-
-    def _generate(self, surface):
-        width, height = surface.get_size()
-        cols, rows = width // self.tile_size, height // self.tile_size
-        src = surface.copy()
-        for row in range(rows):
-            for col in range(cols):
-                x, y = col * self.tile_size, row * self.tile_size
-                rect = Rect(x, y, self.tile_size, self.tile_size)
-                try: sub = src.subsurface(rect).copy()
-                except ValueError: continue
-                
-                # DEBUG: Wave direction inverted (1.0 - norm_y) for Bottom-to-Top
-                norm_y = y / height
-                delay = ((1.0 - norm_y) * DELAY_GRADIENT) + random.uniform(0, DELAY_NOISE)
-                
-                self.particles.append(DisintegrateUpParticle(sub, x, y, delay, height))
-        self.generated = True
-
-    def render(self, surface):
-        if not self.generated: self._generate(surface); surface.fill((0,0,0)); return
-        surface.fill((0, 0, 0))
-        for p in self.particles: p.update(self.progress); p.draw(surface)
-
-class IntegrateUp(BaseTransition):
-    """Transition: Reassembles Bottom to Top."""
-    def __init__(self, duration: float = DURATION, tile_size: int = TILE_SIZE):
-        super().__init__(duration)
-        self.tile_size = tile_size; self.particles = []; self.generated = False
-    def start(self): super().start(); self.generated = False; self.particles = []
-
-    def _generate(self, surface):
-        width, height = surface.get_size()
-        cols, rows = width // self.tile_size, height // self.tile_size
-        src = surface.copy()
-        for row in range(rows):
-            for col in range(cols):
-                x, y = col * self.tile_size, row * self.tile_size
-                rect = Rect(x, y, self.tile_size, self.tile_size)
-                try: sub = src.subsurface(rect).copy()
-                except ValueError: continue
-                
-                # DEBUG: Chaotic delay with inverted direction + offset
-                norm_y = y / height
-                delay = ((1.0 - norm_y) * DELAY_GRADIENT) + random.uniform(0, DELAY_NOISE) + 0.05
-                
-                self.particles.append(IntegrateUpParticle(sub, x, y, delay, height))
-        self.generated = True
-
-    def render(self, surface):
-        if not self.generated: self._generate(surface); surface.fill((0,0,0)); return
-        surface.fill((0, 0, 0))
-        for p in self.particles: p.update(self.progress); p.draw(surface)
+class IntegrateUp(Particletransition):
+    """
+    Particle transition for 'in' mode.
+    """
+    def __init__(self,
+                 duration: float = 1500,
+                 easing_func: Callable[[float], float] = lambda t: t):
+        super().__init__(Direction.UP, "in", duration, 10, easing_func)
+        logger.info("[IntegrateUp] Initialized.")

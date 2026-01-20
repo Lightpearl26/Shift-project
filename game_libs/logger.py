@@ -48,6 +48,10 @@ class Logger:
         self.instant_log: bool = instant_log
 
         # We remove the Latest.log from the folder
+        if not config.LOG:
+            return
+        if not exists(folder):
+            mkdir(folder)
         if exists(join(folder, "Latest.log")):
             log_date = localtime(getmtime(join(folder, "Latest.log")))
             date = f"{log_date[0]}-{log_date[1]}-{log_date[2]}"
@@ -72,7 +76,7 @@ class Logger:
         """
         this methods logs a debug message and return the string of the corresponding log
         """
-        if config.LOG_DEBUG:
+        if config.LOG_DEBUG and config.LOG:
             level = "Debug"
             time = ctime()
             threadname = current_thread().name
@@ -94,6 +98,8 @@ class Logger:
         """
         this methods logs a info message and return the string of the corresponding log
         """
+        if not config.LOG:
+            return
         level = "Info"
         time = ctime()
         threadname = current_thread().name
@@ -115,6 +121,8 @@ class Logger:
         """
         this methods logs a warning message and return the string of the corresponding log
         """
+        if not config.LOG:
+            return
         level = "Warning"
         time = ctime()
         threadname = current_thread().name
@@ -136,6 +144,8 @@ class Logger:
         """
         this methods logs a error message and return the string of the corresponding log
         """
+        if not config.LOG:
+            return
         level = "Error"
         time = ctime()
         threadname = current_thread().name
@@ -157,6 +167,8 @@ class Logger:
         """
         this methods logs a fatal error message and return the string of the corresponding log
         """
+        if not config.LOG:
+            raise LoggerInterrupt
         level = "Fatal"
         time = ctime()
         threadname = current_thread().name

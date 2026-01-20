@@ -54,7 +54,7 @@ class BaseTransition:
     @property
     def duration(self) -> float:
         """
-        Get the duration of the transition in seconds.
+        Get the duration of the transition in milliseconds.
         """
         return self._duration * 1000.0  # Return in milliseconds
 

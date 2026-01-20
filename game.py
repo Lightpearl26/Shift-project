@@ -21,6 +21,8 @@ from game_libs.managers.scene import SceneManager
 from game_libs.managers.display import DisplayManager
 from game_libs.managers.options import OptionsManager
 
+DEBUG_MODE = True
+
 # main function
 def main():
     """Main function to run the game."""
@@ -58,6 +60,12 @@ def main():
         surface = DisplayManager.get_surface()
         surface.fill((0, 0, 0))  # clear screen with black
         SceneManager.render(surface)
+
+        # Debug fps
+        if DEBUG_MODE:
+            fps_font = pygame.font.Font(None, 24)
+            fps_text = fps_font.render(f"FPS: {DisplayManager.get_fps():.2f}", True, (255, 255, 0))
+            surface.blit(fps_text, (10, 10))
 
         # update display
         DisplayManager.flip()
