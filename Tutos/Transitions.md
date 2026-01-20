@@ -215,6 +215,241 @@ video_transition = VideoTransition(
 
 ---
 
+## ✨ Créer une transition personnalisée
+
+### 📋 Protocole de création
+
+Pour créer votre propre transition, suivez ces étapes :
+
+#### Étape 1 : Hériter de BaseTransition
+
+```python
+from game_libs.transitions import BaseTransition
+from pygame import Surface
+
+class MyCustomTransition(BaseTransition):
+    """Description de votre transition"""
+    
+    def __init__(self, duration: float = 1000):
+        super().__init__(duration)
+        # Vos variables d'instance ici
+```
+
+#### Étape 2 : Implémenter render()
+
+La méthode `render()` est appelée à chaque frame. Utilisez `self.progress` (0.0 → 1.0) pour animer votre transition.
+
+```python
+    def render(self, surface: Surface) -> None:
+        """
+        Dessiner l'effet de transition.
+        
+        Args:
+            surface: La surface pygame à modifier
+        """
+        # self.progress va de 0.0 (début) à 1.0 (fin)
+        # Dessinez votre effet ici
+        pass
+```
+
+#### Étape 3 : (Optionnel) Surcharger start()
+
+Si vous avez besoin d'initialiser des données au démarrage :
+
+```python
+    def start(self) -> None:
+        """Appelé quand la transition démarre"""
+        super().start()
+        # Votre initialisation ici
+```
+
+### 📝 Template complet
+
+```python
+# -*- coding: utf-8 -*-
+
+"""
+my_transition.py
+Description de votre transition
+"""
+
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
+from game_libs.transitions import BaseTransition
+from pygame import Surface, SRCALPHA
+import pygame
+
+if TYPE_CHECKING:
+    pass
+
+class MyCustomTransition(BaseTransition):
+    """
+    Ma transition personnalisée.
+    """
+    
+    def __init__(self, duration: float = 1000, **kwargs):
+        """
+        Initialiser la transition.
+        
+        Args:
+            duration: Durée en millisecondes
+            **kwargs: Paramètres additionnels
+        """
+        super().__init__(duration)
+        # Vos variables
+        self.my_param = kwargs.get('my_param', 'default')
+    
+    def start(self) -> None:
+        """Démarrage de la transition"""
+        super().start()
+        # Initialisation
+    
+    def render(self, surface: Surface) -> None:
+        """
+        Rendu de la transition.
+        
+        Args:
+            surface: Surface pygame à modifier
+        """
+        # Utiliser self.progress (0.0 → 1.0)
+        # Dessiner votre effet
+        pass
+```
+
+### 💡 Exemples de transitions personnalisées
+
+#### Exemple 1 : Transition en cercle
+
+```python
+from game_libs.transitions import BaseTransition
+from pygame import Surface, SRCALPHA
+import pygame
+
+class CircleTransition(BaseTransition):
+    """Transition avec un cercle qui s'agrandit depuis le centre"""
+    
+    def __init__(self, duration: float = 1000, color: tuple = (0, 0, 0)):
+        super().__init__(duration)
+        self.color = color
+    
+    def render(self, surface: Surface) -> None:
+        width, height = surface.get_size()
+        max_dist = ((width/2)**2 + (height/2)**2) ** 0.5
+        radius = int(self.progress * max_dist)
+        
+        overlay = Surface(surface.get_size(), SRCALPHA)
+        overlay.fill((0, 0, 0, 0))
+        
+        center = (width // 2, height // 2)
+        pygame.draw.circle(overlay, (*self.color, 200), center, radius)
+        
+        surface.blit(overlay, (0, 0))
+
+# Utilisation
+transition = CircleTransition(duration=1500, color=(255, 0, 0))
+SceneManager.change_scene("game", transition_out=transition)
+```
+
+#### Exemple 2 : Transition en bandes horizontales
+
+```python
+from game_libs.transitions import BaseTransition
+from pygame import Surface, Rect
+
+class BandsTransition(BaseTransition):
+    """Transition avec des bandes horizontales"""
+    
+    def __init__(self, duration: float = 1000, num_bands: int = 10):
+        super().__init__(duration)
+        self.num_bands = num_bands
+    
+    def render(self, surface: Surface) -> None:
+        width, height = surface.get_size()
+        band_height = height // self.num_bands
+        
+        for i in range(self.num_bands):
+            # Bandes alternées
+            offset = int(width * self.progress) if i % 2 == 0 else -int(width * self.progress)
+            y = i * band_height
+            
+            # Dessiner un rectangle noir
+            rect = Rect(offset, y, width, band_height)
+            pygame.draw.rect(surface, (0, 0, 0), rect)
+
+# Utilisation
+transition = BandsTransition(duration=800, num_bands=8)
+```
+
+#### Exemple 3 : Transition par pixelisation
+
+```python
+from game_libs.transitions import BaseTransition
+from pygame import Surface, transform
+
+class PixelateTransition(BaseTransition):
+    """Transition par pixelisation progressive"""
+    
+    def __init__(self, duration: float = 1000):
+        super().__init__(duration)
+        self.original_surface = None
+    
+    def start(self) -> None:
+        super().start()
+        self.original_surface = None
+    
+    def render(self, surface: Surface) -> None:
+        if self.original_surface is None:
+            self.original_surface = surface.copy()
+        
+        # Calculer le niveau de pixelisation
+        pixel_size = max(1, int(1 + self.progress * 50))
+        
+        # Réduire puis agrandir pour pixeliser
+        width, height = surface.get_size()
+        small_size = (max(1, width // pixel_size), max(1, height // pixel_size))
+        
+        small = transform.scale(self.original_surface, small_size)
+        pixelated = transform.scale(small, (width, height))
+        
+        surface.blit(pixelated, (0, 0))
+```
+
+### ⚠️ Bonnes pratiques
+
+1. **Performance** : Évitez les calculs lourds dans `render()`, appelez-les dans `start()` si possible
+2. **Progress** : Utilisez toujours `self.progress` pour l'animation
+3. **Easing** : Acceptez un paramètre `ease_func` pour la flexibilité
+4. **Documentation** : Documentez bien vos paramètres
+5. **Compatibilité** : Testez avec différentes résolutions
+
+### 🔧 Intégration dans le projet
+
+Pour intégrer votre transition dans le projet :
+
+1. Créer le fichier dans `game_libs/transitions/my_transition.py`
+2. Importer dans `game_libs/transitions/__init__.py` :
+
+```python
+from .my_transition import MyCustomTransition
+
+__all__ = [
+    # ... autres transitions
+    "MyCustomTransition",
+]
+```
+
+3. Utiliser comme les autres transitions :
+
+```python
+from game_libs.transitions import MyCustomTransition
+
+transition = MyCustomTransition(duration=1000)
+SceneManager.change_scene("game", transition_out=transition)
+```
+
+---
+
 ## ⏱️ Fonctions d'easing
 
 Les fonctions d'easing contrôlent comment la transition progresse dans le temps.
@@ -398,43 +633,6 @@ SceneManager.change_scene(
     "ending",
     transition_out=CinematicFadeOut()
 )
-```
-
-### Exemple 4 : Créer une transition personnalisée
-
-```python
-from game_libs.transitions import BaseTransition
-from pygame import Surface, SRCALPHA
-
-class CustomCircleTransition(BaseTransition):
-    """Transition avec un cercle qui s'agrandit depuis le centre"""
-    
-    def __init__(self, duration: float = 1000):
-        super().__init__(duration)
-        self._radius_max = 0
-    
-    def render(self, surface: Surface) -> None:
-        # Calculer le rayon en fonction de la progression
-        width, height = surface.get_size()
-        max_dist = ((width/2)**2 + (height/2)**2) ** 0.5
-        self._radius_max = self.progress * max_dist
-        
-        # Dessiner un cercle qui s'agrandit
-        overlay = Surface(surface.get_size(), SRCALPHA)
-        overlay.fill((0, 0, 0, 0))  # Fond transparent
-        
-        center = (width // 2, height // 2)
-        radius = int(self._radius_max)
-        
-        # Créer l'effet circulaire
-        import pygame
-        pygame.draw.circle(overlay, (0, 0, 0, 128), center, radius)
-        
-        surface.blit(overlay, (0, 0))
-
-# Utilisation
-custom_transition = CustomCircleTransition(duration=1500)
-SceneManager.change_scene("game", transition_out=custom_transition)
 ```
 
 ---

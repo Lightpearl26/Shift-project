@@ -12,54 +12,26 @@ Le **SceneManager** gère l'ensemble des scènes du jeu et leurs transitions. Il
 ## 🎯 Caractéristiques principales
 
 - Gestion centralisée de toutes les scènes
-- Système de transitions (fade-in, fade-out)
+- Système de transitions (fade-in, fade-out, particules, vidéo)
 - Cycle de vie des scènes (init, enter, exit, update, render)
 - Historique des scènes (scène précédente)
 - États de transition (normal, transition_in, transition_out)
 
 ---
 
-## 🏗️ Structure d'une scène
+## 🏗️ Architecture
 
-Toutes les scènes héritent de `BaseScene` et doivent implémenter certaines méthodes :
+**Pour une description complète de l'architecture des scènes, consultez [Scenes.md](Scenes.md).**
 
-```python
-from game_libs.scenes import BaseScene
+Le SceneManager gère le cycle de vie complet des scènes :
+- **Initialisation** (`init()`) : Une seule fois au démarrage
+- **Entrée** (`on_enter()`) : À chaque activation de la scène
+- **Mise à jour** (`update(dt)`) : À chaque frame
+- **Gestion des événements** (`handle_events()`) : À chaque frame
+- **Rendu** (`render(surface)`) : À chaque frame
+- **Sortie** (`on_exit()`) : À chaque désactivation de la scène
 
-class MyScene(BaseScene):
-    def __init__(self):
-        super().__init__("my_scene") # Nom unique de la scène
-    
-    def init(self):
-        """Appelé une seule fois au démarrage du jeu"""
-        # Charger les ressources, initialiser les variables
-        pass
-    
-    def on_enter(self):
-        """Appelé à chaque fois qu'on entre dans la scène"""
-        # Réinitialiser l'état, démarrer la musique, etc.
-        pass
-    
-    def on_exit(self):
-        """Appelé à chaque fois qu'on quitte la scène"""
-        # Nettoyer, arrêter la musique, etc.
-        pass
-    
-    def handle_events(self):
-        """Appelé pour gérer les événements utilisateur"""
-        # Vérifier les touches pressées, clics souris, etc.
-        pass
-    
-    def update(self, dt: float):
-        """Appelé à chaque frame pour mettre à jour la logique"""
-        self.event_manager.update(dt) # Ne pas oublier de mettre a jour l'EventManager
-        # Mise à jour des entités, physique, etc.
-    
-    def render(self, surface):
-        """Appelé à chaque frame pour le rendu"""
-        # Dessiner tout sur la surface
-        pass
-```
+**Pour créer une nouvelle scène, consultez [Scenes.md](Scenes.md) section "✨ Créer une nouvelle scène".**
 
 ---
 
@@ -257,281 +229,58 @@ def render():
 
 ---
 
-## 📋 Exemple complet
+## 📋 Exemples
 
-### Structure des scènes
+**Pour des exemples complets de scènes, consultez [Scenes.md](Scenes.md) section "💡 Exemples complets".**
 
-```python
-# game_libs/scenes/menu_scene.py
-from game_libs.scenes import BaseScene
-from game_libs.managers.audio import AudioManager
-from game_libs.managers.event import EventManager, KeyState
+**Pour la boucle principale du jeu, consultez [README.md](README.md) section "🚀 Initialisation rapide".**
 
-class MenuScene(BaseScene):
-    def __init__(self):
-        super().__init__("menu")
-    
-    def init(self):
-        """Chargement des ressources"""
-        self.font = pygame.font.Font(None, 72)
-        self.options = ["Jouer", "Options", "Quitter"]
-        self.selected = 0
-    
-    def on_enter(self):
-        """Entrée dans le menu"""
-        AudioManager.play_bgm("menu_theme", fadein_ms=1000)
-    
-    def on_exit(self):
-        """Sortie du menu"""
-        AudioManager.stop_bgm(fadeout_ms=500)
-    
-    def handle_events(self):
-        """Gestion des entrées"""
-        keys = self.event_manager.get_keys()
-        
-        if keys["DOWN"] == KeyState.PRESSED:
-            self.selected = (self.selected + 1) % len(self.options)
-            AudioManager.play_se("menu_move")
-        
-        if keys["UP"] == KeyState.PRESSED:
-            self.selected = (self.selected - 1) % len(self.options)
-            AudioManager.play_se("menu_move")
-        
-        if keys["JUMP"] == KeyState.PRESSED:
-            AudioManager.play_se("menu_select")
-            
-            if self.selected == 0:  # Jouer
-                from game_libs.transitions import FadeTransition
-                fade_out = FadeTransition(0.5, False)
-                fade_in = FadeTransition(0.5, True)
-                self.scene_manager.change_scene("game", fade_out, fade_in)
-            
-            elif self.selected == 1:  # Options
-                self.scene_manager.change_scene("options")
-            
-            elif self.selected == 2:  # Quitter
-                pygame.event.post(pygame.event.Event(pygame.QUIT))
-    
-    def update(self, dt: float):
-        """Mise à jour"""
-        self.event_manager.update(dt)
-    
-    def render(self, surface):
-        """Rendu"""
-        surface.fill((20, 20, 40))
-        
-        # Titre
-        title = self.font.render("MON JEU", True, (255, 255, 255))
-        surface.blit(title, (400, 100))
-        
-        # Options du menu
-        for i, option in enumerate(self.options):
-            color = (255, 255, 0) if i == self.selected else (255, 255, 255)
-            text = self.font.render(option, True, color)
-            surface.blit(text, (500, 300 + i * 80))
-
-
-# game_libs/scenes/game_scene.py
-class GameScene(BaseScene):
-    def __init__(self):
-        super().__init__("game")
-    
-    def init(self):
-        """Initialisation des ressources du jeu"""
-        # Charger les assets, créer les entités, etc.
-        pass
-    
-    def on_enter(self):
-        """Démarrage du jeu"""
-        AudioManager.play_bgm("game_theme")
-    
-    def on_exit(self):
-        """Sortie du jeu"""
-        AudioManager.stop_all()
-    
-    def handle_events(self):
-        """Gestion des événements"""
-        keys = self.event_manager.get_keys()
-        
-        # Pause
-        if keys["PAUSE"] == KeyState.PRESSED:
-            self.scene_manager.change_scene("pause")
-    
-    def update(self, dt: float):
-        """Logique du jeu"""
-        self.event_manager.update(dt)
-        # Mise à jour des entités, physique, collisions, etc.
-    
-    def render(self, surface):
-        """Rendu du jeu"""
-        surface.fill((0, 0, 0))
-        # Dessiner le niveau, les entités, l'UI, etc.
-
-
-# game_libs/scenes/__init__.py
-from .base_scene import BaseScene
-from .menu_scene import MenuScene
-from .game_scene import GameScene
-
-__all__ = ["BaseScene", "MenuScene", "GameScene"]
-```
-
-### Boucle principale
+### Exemple rapide : Changer de scène
 
 ```python
-import pygame
-from game_libs.managers.display import DisplayManager
-from game_libs.managers.audio import AudioManager
-from game_libs.managers.event import EventManager
 from game_libs.managers.scene import SceneManager
-from game_libs.managers.options import OptionsManager
+from game_libs.managers.event import KeyState
+from game_libs.transitions import FadeOut, FadeIn
 
-def main():
-    # Initialisation
-    pygame.init()
-    
-    # Charger les options
-    OptionsManager.init()
-    
-    # Initialiser les managers
-    DisplayManager.init(width=1280, height=720, caption="Mon Jeu")
-    AudioManager.init()
-    
-    # Initialiser les scènes
-    SceneManager.init()
-    
-    # Démarrer sur le menu
-    SceneManager.change_scene("menu")
-    
-    # Boucle de jeu
-    running = True
-    while running:
-        # Timing
-        DisplayManager.tick()
-        dt = DisplayManager.get_delta_time()
-
-        # Événements pygame
-        if pygame.event.peek(pygame.QUIT):
-            running = False
+class MyScene(BaseScene):
+    def handle_events(self):
+        keys = self.event_manager.get_keys()
         
-        # Déléguer à la scène active
-        SceneManager.update(dt)
-        SceneManager.handle_events()
-        
-        # Rendu
-        surface = DisplayManager.get_surface()
-        surface.fill((0, 0, 0))
-        SceneManager.render(surface)
-        DisplayManager.flip()
-    
-    # Nettoyage
-    OptionsManager.save()
-    AudioManager.stop_all()
-    DisplayManager.shutdown()
-    pygame.quit()
-
-if __name__ == "__main__":
-    main()
+        if keys.get("ACCEPT") == KeyState.PRESSED:
+            SceneManager.change_scene(
+                "game",
+                transition_out=FadeOut(duration=500),
+                transition_in=FadeIn(duration=500)
+            )
 ```
 
 ---
 
 ## 🎨 Utilisation avec des transitions
 
-### Créer une transition personnalisée
+**Pour créer des transitions personnalisées, consultez [Transitions.md](Transitions.md) section "✨ Créer une transition personnalisée".**
+
+### Exemples d'utilisation
 
 ```python
-from game_libs.transitions import BaseTransition
-import pygame
+from game_libs.managers.scene import SceneManager
+from game_libs.transitions import FadeIn, FadeOut, DisintegrateRight
 
-class FadeTransition(BaseTransition):
-    def __init__(self, duration: float, fade_in: bool = False):
-        super().__init__(duration)
-        self.fade_in = fade_in
-    
-    def render(self, surface):
-        # Créer un overlay noir semi-transparent
-        overlay = pygame.Surface(surface.get_size())
-        overlay.fill((0, 0, 0))
-        alpha = 255 * self.progress if self.fade_in else 255 * (1 - self.progress)
-        overlay.set_alpha(alpha)
-        surface.blit(overlay, (0, 0))
+# Transition simple
+fade_out = FadeOut(duration=800)
+SceneManager.change_scene("menu", transition_out=fade_out)
 
-# Utilisation
-fade_out = FadeTransition(duration=1.0, fade_in=False)
-fade_in = FadeTransition(duration=1.0, fade_in=True)
+# Transition entrée + sortie
+fade_out = FadeOut(duration=800)
+fade_in = FadeIn(duration=800)
+SceneManager.change_scene("game", transition_out=fade_out, transition_in=fade_in)
 
-SceneManager.change_scene("next_scene", fade_out, fade_in)
+# Transition avec particules
+disintegrate = DisintegrateRight(duration=1500, tile_size=16)
+SceneManager.change_scene("next_level", transition_out=disintegrate)
 ```
 
----
-
-## 📋 Exemple : Scène de pause
-
-```python
-class PauseScene(BaseScene):
-    def __init__(self):
-        super().__init__("pause")
-    
-    def init(self):
-        self.font = pygame.font.Font(None, 72)
-        self.options = ["Reprendre", "Menu"]
-        self.selected = 0
-    
-    def on_enter(self):
-        """Mettre le jeu en pause"""
-        AudioManager.pause_bgm()
-        EventManager.pause_timers()
-    
-    def on_exit(self):
-        """Reprendre le jeu"""
-        # Reprendre seulement si on retourne au jeu
-        if self.scene_manager.get_current_scene().name == "game":
-            AudioManager.resume_bgm()
-            EventManager.resume_timers()
-    
-    def handle_events(self):
-        keys = self.event_manager.get_keys()
-        
-        # Navigation
-        if keys["DOWN"] == KeyState.PRESSED:
-            self.selected = (self.selected + 1) % len(self.options)
-        if keys["UP"] == KeyState.PRESSED:
-            self.selected = (self.selected - 1) % len(self.options)
-        
-        # Sélection ou Échap pour reprendre
-        if keys["JUMP"] == KeyState.PRESSED or keys["PAUSE"] == KeyState.PRESSED:
-            if self.selected == 0 or keys["PAUSE"] == KeyState.PRESSED:
-                # Reprendre
-                self.scene_manager.change_scene("game")
-            else:
-                # Retour au menu
-                self.scene_manager.change_scene("menu")
-    
-    def update(self, dt: float):
-        self.event_manager.update(dt)
-    
-    def render(self, surface):
-        # Rendre la scène de jeu en arrière-plan (floutée/sombre)
-        game_scene = self.scene_manager.get_previous_scene()
-        if game_scene:
-            game_scene.render(surface)
-        
-        # Overlay semi-transparent
-        overlay = pygame.Surface(surface.get_size())
-        overlay.fill((0, 0, 0))
-        overlay.set_alpha(128)
-        surface.blit(overlay, (0, 0))
-        
-        # Menu de pause
-        title = self.font.render("PAUSE", True, (255, 255, 255))
-        surface.blit(title, (500, 200))
-        
-        for i, option in enumerate(self.options):
-            color = (255, 255, 0) if i == self.selected else (200, 200, 200)
-            text = self.font.render(option, True, color)
-            surface.blit(text, (500, 350 + i * 70))
-```
+**Pour tous les types de transitions disponibles, consultez [Transitions.md](Transitions.md).**
 
 ---
 

@@ -146,13 +146,13 @@ class MainMenuScene(BaseScene):
         keys = self.event_manager.get_keys()
         
         # Navigation
-        if keys["UP"].is_pressed():
+        if keys.get("UP") == KeyState.PRESSED:
             self.selected_option = (self.selected_option - 1) % len(self.options)
-        if keys["DOWN"].is_pressed():
+        if keys.get("DOWN") == KeyState.PRESSED:
             self.selected_option = (self.selected_option + 1) % len(self.options)
         
         # Sélection
-        if keys["ACCEPT"].is_pressed():
+        if keys.get("ACCEPT") == KeyState.PRESSED:
             if self.selected_option == 0:  # Play
                 SceneManager.change_scene(
                     "game",
@@ -269,7 +269,7 @@ class MyScene(BaseScene):
         keys = self.event_manager.get_keys()
         
         # Exemple : appuyer sur ESC pour quitter
-        # if keys["CANCEL"].is_pressed():
+        # if keys.get("CANCEL") == KeyState.PRESSED:
         #     SceneManager.change_scene("menu")
     
     def update(self, dt: float) -> None:
@@ -363,7 +363,7 @@ def my_method(self):
     
     # Events
     keys = self.event_manager.get_keys()
-    if keys["JUMP"].is_pressed():
+    if keys.get("JUMP") == KeyState.PRESSED:
         self.player.jump()
     
     # Display
@@ -412,7 +412,7 @@ class GameScene(BaseScene):
         keys = self.event_manager.get_keys()
         
         # Pause
-        if keys["PAUSE"].is_pressed():
+        if keys.get("PAUSE") == KeyState.PRESSED:
             SceneManager.change_scene("pause", transition_out=FadeOut(300))
     
     def update(self, dt):
@@ -420,13 +420,13 @@ class GameScene(BaseScene):
         
         # Mouvement du joueur
         keys = self.event_manager.get_keys()
-        if keys["LEFT"].is_held():
+        if keys.get("LEFT") == KeyState.HELD:
             self.player_x -= self.player_speed * dt
-        if keys["RIGHT"].is_held():
+        if keys.get("RIGHT") == KeyState.HELD:
             self.player_x += self.player_speed * dt
-        if keys["UP"].is_held():
+        if keys.get("UP") == KeyState.HELD:
             self.player_y -= self.player_speed * dt
-        if keys["DOWN"].is_held():
+        if keys.get("DOWN") == KeyState.HELD:
             self.player_y += self.player_speed * dt
     
     def render(self, surface):
@@ -464,12 +464,12 @@ class PauseScene(BaseScene):
     def handle_events(self):
         keys = self.event_manager.get_keys()
         
-        if keys["UP"].is_pressed():
+        if keys.get("UP") == KeyState.PRESSED:
             self.selected = (self.selected - 1) % len(self.options)
-        if keys["DOWN"].is_pressed():
+        if keys.get("DOWN") == KeyState.PRESSED:
             self.selected = (self.selected + 1) % len(self.options)
         
-        if keys["ACCEPT"].is_pressed():
+        if keys.get("ACCEPT") == KeyState.PRESSED:
             if self.selected == 0:  # Resume
                 SceneManager.change_scene(
                     "game",
@@ -542,47 +542,47 @@ class AnimatedScene(BaseScene):
 ## 🔄 Cycle de vie détaillé
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Démarrage du jeu                         │
-│                 pygame.init() → OptionsManager...           │
-│                    SceneManager.init()                      │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-                           ▼
-        ┌──────────────────────────────────────┐
-        │   Pour chaque scène :                │
-        │   scene.init() appelé UNE FOIS      │
-        └──────────────────┬───────────────────┘
-                           │
-                    ▼──────────────────────▼
-        ┌──────────────────┐        ┌────────────────────┐
-        │  Scène courante  │        │  Autres scènes     │
-        │  on_enter()      │        │  (en attente)      │
-        └──────────┬───────┘        └────────────────────┘
-                   │
-        ┌──────────▼──────────────────────┐
-        │   Boucle principale              │
-        │  ┌────────────────────────────┐ │
-        │  │ 1. handle_events()         │ │
-        │  │ 2. update(dt)              │ │
-        │  │ 3. render(surface)         │ │
-        │  │ (répété à 60 FPS)          │ │
-        │  └────────────────────────────┘ │
-        │   Jusqu'à change_scene()        │
-        └──────────┬───────────────────────┘
-                   │
-        ┌──────────▼──────────────────────┐
-        │   Changement de scène            │
-        │   current.on_exit()             │
-        │   next.on_enter()               │
-        │   (transitions optionnelles)    │
-        └──────────┬───────────────────────┘
-                   │
-                   ▼
-        ┌──────────────────────────────────┐
-        │   Reprise de la boucle avec      │
-        │   la nouvelle scène              │
-        └──────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                 Démarrage du jeu                         │
+│           pygame.init() → OptionsManager...              │
+│               SceneManager.init()                        │
+└────────────────────────┬─────────────────────────────────┘
+                         │
+                         ▼
+         ┌───────────────────────────────────┐
+         │   Pour chaque scène :             │
+         │   scene.init() appelé UNE FOIS    │
+         └────────────────┬──────────────────┘
+                          │
+                ▼─────────┴─────────▼
+    ┌──────────────────┐     ┌─────────────────┐
+    │ Scène courante   │     │ Autres scènes   │
+    │ on_enter()       │     │ (en attente)    │
+    └─────────┬────────┘     └─────────────────┘
+              │
+    ┌─────────▼────────────────────────┐
+    │   Boucle principale              │
+    │  ┌────────────────────────────┐  │
+    │  │ 1. update(dt)              │  │
+    │  │ 2. handle_events()         │  │
+    │  │ 3. render(surface)         │  │
+    │  │ (répété à 60 FPS)          │  │
+    │  └────────────────────────────┘  │
+    │   Jusqu'à change_scene()         │
+    └─────────┬────────────────────────┘
+              │
+    ┌─────────▼────────────────────────┐
+    │   Changement de scène            │
+    │   current.on_exit()              │
+    │   next.on_enter()                │
+    │   (transitions optionnelles)     │
+    └─────────┬────────────────────────┘
+              │
+              ▼
+    ┌─────────────────────────────────┐
+    │   Reprise de la boucle avec     │
+    │   la nouvelle scène             │
+    └─────────────────────────────────┘
 ```
 
 ---
