@@ -4,6 +4,14 @@
 
 Le **EventManager** gère tous les événements d'entrée utilisateur du jeu : clavier, manette (gamepad), et système de timers. Il traduit les entrées physiques en actions de jeu et permet de détecter les états de touches (pressée, maintenue, relâchée).
 
+**Voir aussi :**
+- [📚 Managers.md](Managers.md) - Vue d'ensemble des managers
+- [📖 Scenes.md](Scenes.md) - Utilisation dans les scènes
+- [SceneManager.md](SceneManager.md) - Gestion des scènes
+- [README.md](README.md) - Plan de navigation générale
+
+---
+
 ## 🎯 Caractéristiques principales
 
 - Mapping des touches clavier configurables

@@ -4,6 +4,14 @@
 
 Le **AudioManager** est responsable de la gestion complète du système audio du jeu. Il gère 4 types de sons différents :
 
+**Voir aussi :**
+- [📚 Managers.md](Managers.md) - Vue d'ensemble des managers
+- [⚙️ OptionsManager.md](OptionsManager.md) - Gestion des volumes
+- [📖 Scenes.md](Scenes.md) - Utilisation dans les scènes
+- [README.md](README.md) - Plan de navigation générale
+
+---
+
 - **BGM** (Background Music) : Musiques de fond
 - **BGS** (Background Sounds) : Sons d'ambiance en boucle
 - **ME** (Music Effects) : Effets musicaux courts

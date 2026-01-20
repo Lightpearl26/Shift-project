@@ -4,6 +4,11 @@
 
 Le **SceneManager** gère l'ensemble des scènes du jeu et leurs transitions. Il permet de passer d'une scène à l'autre (menu, jeu, options, etc.) de manière fluide avec des effets de transition optionnels.
 
+**Voir aussi :**
+- [📖 Tutoriel des scènes](Scenes.md) - Architecture complète et création
+- [🎬 Tutoriel des transitions](Transitions.md) - Effets de transition
+- [README.md](README.md) - Plan de navigation générale
+
 ## 🎯 Caractéristiques principales
 
 - Gestion centralisée de toutes les scènes

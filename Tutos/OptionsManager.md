@@ -4,6 +4,15 @@
 
 Le **OptionsManager** gère toutes les options et paramètres du jeu, avec sauvegarde et chargement automatiques depuis un fichier JSON. Il synchronise automatiquement les paramètres avec les autres managers (AudioManager, DisplayManager, EventManager).
 
+**Voir aussi :**
+- [📚 Managers.md](Managers.md) - Vue d'ensemble des managers
+- [🔊 AudioManager.md](AudioManager.md) - Gestion des volumes
+- [🖥️ DisplayManager.md](DisplayManager.md) - Paramètres d'affichage
+- [🎮 EventManager.md](EventManager.md) - Configuration des contrôles
+- [README.md](README.md) - Plan de navigation générale
+
+---
+
 ## 🎯 Caractéristiques principales
 
 - Gestion centralisée de tous les paramètres

@@ -4,6 +4,14 @@
 
 Le **DisplayManager** gère tout ce qui concerne l'affichage et la fenêtre du jeu : création de la fenêtre, gestion du mode plein écran, VSync, FPS, captures d'écran, et plus encore.
 
+**Voir aussi :**
+- [📚 Managers.md](Managers.md) - Vue d'ensemble des managers
+- [⚙️ OptionsManager.md](OptionsManager.md) - Paramètres d'affichage
+- [📖 Scenes.md](Scenes.md) - Utilisation dans les scènes
+- [README.md](README.md) - Plan de navigation générale
+
+---
+
 ## 🎯 Caractéristiques principales
 
 - Gestion de la fenêtre et de sa surface d'affichage
