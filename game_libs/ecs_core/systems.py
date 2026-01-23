@@ -27,6 +27,7 @@ from .components import EntityState, EntityProperty
 # import header
 from ..header import ComponentTypes as C
 from ..managers.event import KeyState
+from ..managers.audio import AudioManager
 
 if TYPE_CHECKING:
     from ..level.level import Level
@@ -94,6 +95,7 @@ def player_control_system(engine: Engine, level: Level, dt: float) -> None:
                     else:
                         jump.direction = 60.0
                         xdir.value = 1.0
+                AudioManager.play_se("JUMP")
             else:
                 jump.time_left = 0.0
 

@@ -202,7 +202,7 @@ class Logger:
         get the string format of a log
         """
         if log:
-            strflog = f"[ {log["level"]} ][ {log["thread"]} ][ {log["time"]} ]: {log["message"]}"
+            strflog = f"[ {log["level"]:^7} ][ {log["thread"]} ][ {log["time"]} ]: {log["message"]}"
             return strflog
         return ""
 

@@ -275,33 +275,35 @@ class TilemapRenderer:
             cls._last_surface.blit(tile_surf, pos)
 
     @classmethod
-    def render(cls, tilemap: TilemapData, surface: Surface, camera: Camera, camera_interp: Camera) -> None:
+    def render(cls, tilemap: TilemapData, surface: Surface, camera_interp: Camera) -> None:
         """
-        Render the tilemap on surface with interpolated camera
+        Render the tilemap on surface with interpolated camera (snapped to pixel grid)
         """
-        curr_pos = Vector2(camera.pos)
         interp_pos = Vector2(camera_interp.pos)
+
+        # Snap interpolated position to integer pixels for tilemap grid alignment
+        render_pos = Vector2(round(interp_pos.x), round(interp_pos.y))
+
+        # No offset: tilemap stays on pixel grid
+        offset = (0, 0)
         
-        # Calculate offset to compensate for interpolation (before rendering)
-        offset = interp_pos - curr_pos
-        # Round offset to integer pixels to avoid jittering
-        offset = (int(offset.x), int(offset.y))
-        
-        # render parallax with interpolated camera
+        # render parallax with snapped camera
+        tile_cam = Camera(render_pos, camera_interp.size)
         for parallax in reversed(tilemap.parallax):
-            cls._render_parallax(tilemap, parallax, surface, camera)
+            cls._render_parallax(tilemap, parallax, surface, tile_cam)
             
 
         if not cls._last_surface:
-            cls._last_surface = Surface(camera.rect.size, SRCALPHA)
+            cls._last_surface = Surface(camera_interp.rect.size, SRCALPHA)
 
-        # Redraw if real camera moved more than 1 pixel (tiles changed)
-        if cls._last_camera_pos is None or (curr_pos - cls._last_camera_pos).length() >= 1.0:
-            cls._redraw_full(tilemap, Camera(curr_pos, camera.size))
-            cls._last_camera_pos = Vector2(curr_pos)
+        # Redraw when interpolated camera position (snapped) changes by 1+ pixel
+        # This gives fluid tile updates without sub-pixel jitter
+        if cls._last_camera_pos is None or (render_pos - cls._last_camera_pos).length() >= 1.0:
+            cls._redraw_full(tilemap, tile_cam)
+            cls._last_camera_pos = Vector2(render_pos)
         else:
-            # Just update animated tiles with real camera position
-            cls._redraw_dirty(tilemap, Camera(curr_pos, camera.size))
+            # Just update animated tiles with current camera position
+            cls._redraw_dirty(tilemap, tile_cam)
 
-        # Blit the pre-rendered tilemap with interpolation offset
+        # Blit the pre-rendered tilemap at pixel boundary
         surface.blit(cls._last_surface, offset)

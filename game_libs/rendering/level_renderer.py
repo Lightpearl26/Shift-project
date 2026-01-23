@@ -41,13 +41,14 @@ class LevelRenderer:
         """
         Render the level on the given surface according to the camera rect
         """
-        # Calculate interpolated camera position for consistent rendering
         prev_pos = cls._last_camera_pos or Vector2(level.camera.pos)
         curr_pos = Vector2(level.camera.pos)
-        interp_camera_pos = prev_pos.lerp(curr_pos, alpha) + Vector2(0.5, 0.5)
-        interp_camera = Camera(interp_camera_pos, level.camera.size)
 
-        # Render tilemap with real and interpolated camera
-        TilemapRenderer.render(level.tilemap, surface, level.camera, interp_camera)
-        # Render all entities and player with interpolated camera and alpha
+        # Smooth camera for entities (keeps player smooth)
+        interp_pos = prev_pos.lerp(curr_pos, alpha) if cls._last_camera_pos is not None else curr_pos
+        interp_camera = Camera(interp_pos, level.camera.size)
+
+        # Render tilemap with interpolated camera (snapping happens inside renderer)
+        TilemapRenderer.render(level.tilemap, surface, interp_camera)
+        # Render entities with interpolated camera for smoothness
         EntityRenderer.render(level, surface, interp_camera, alpha)

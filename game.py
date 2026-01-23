@@ -36,7 +36,9 @@ def main():
     SceneManager.init()
 
     # load the first scene
-    SceneManager.change_scene("Welcome")
+    SceneManager.change_scene("Tests")
+
+    fps_font = pygame.font.Font(None, 24)
 
     # Main game loop
     running = True
@@ -63,8 +65,7 @@ def main():
 
         # Debug fps
         if DEBUG_MODE:
-            fps_font = pygame.font.Font(None, 24)
-            fps_text = fps_font.render(f"FPS: {DisplayManager.get_fps():.2f}", True, (255, 255, 0))
+            fps_text = fps_font.render(f"FPS: {DisplayManager.get_fps():.0f}", True, (255, 255, 0))
             surface.blit(fps_text, (10, 10))
 
         # update display

@@ -15,9 +15,11 @@ ________________________________________________________________________________
 from .base import BaseScene
 from .welcome import WelcomeScene
 from .main_menu import MainMenuScene
+from .game_test import GameTestScene
 
 __all__ = [
     "BaseScene",
     "WelcomeScene",
-    "MainMenuScene"
+    "MainMenuScene",
+    "GameTestScene"
 ]
