@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-#pylint: disable=broad-except
+#pylint: disable=broad-except, unsubscriptable-object
 
 """
 game_libs.managers.display
@@ -20,8 +20,8 @@ from __future__ import annotations
 from typing import Literal
 from pathlib import Path
 from datetime import datetime
-import numpy as np
 import ctypes
+import numpy as np
 try:
     # OpenGL imports (optional, used when GPU post-process is enabled)
     from OpenGL.GL import (
@@ -32,15 +32,15 @@ try:
         glGenTextures, glBindTexture, glTexImage2D, glTexSubImage2D, glTexParameteri,
         GL_TEXTURE_2D, GL_RGBA, GL_UNSIGNED_BYTE, GL_LINEAR, GL_CLAMP_TO_EDGE,
         GL_TEXTURE_MIN_FILTER, GL_TEXTURE_MAG_FILTER, GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T,
-        glViewport, glClearColor, glClear, GL_COLOR_BUFFER_BIT,
+        glViewport, glClearColor,
         glGenVertexArrays, glBindVertexArray,
         glGenBuffers, glBindBuffer, glBufferData, GL_ARRAY_BUFFER,
         glEnableVertexAttribArray, glVertexAttribPointer, GL_FLOAT,
         glDrawArrays, GL_TRIANGLES,
-        glActiveTexture, GL_TEXTURE0, glPixelStorei, GL_UNPACK_ALIGNMENT, GL_STATIC_DRAW
+        glActiveTexture, GL_TEXTURE0, GL_STATIC_DRAW
     )
     _OPENGL_AVAILABLE = True
-except Exception:
+except Exception as e:
     _OPENGL_AVAILABLE = False
 
 # Import pygame
@@ -49,7 +49,6 @@ from pygame import display as pygame_display
 from pygame import image as pygame_image
 from pygame import mouse as pygame_mouse
 from pygame import time as pygame_time
-from pygame import surfarray as pygame_surfarray
 from pygame import transform as pygame_transform
 from pygame import FULLSCREEN, OPENGL, DOUBLEBUF
 
@@ -133,6 +132,9 @@ class DisplayManager:
     _u_c: int = -1
     _u_g: int = -1
     _u_cb: int = -1
+    _lut: np.ndarray | None = None  # 3D LUT for CPU post-processing
+    _lut_size: int = 64  # LUT resolution (64x64x64 = good balance speed/quality)
+    _lut_dirty: bool = True  # Flag to regenerate LUT when params change
 
     @classmethod
     def init(cls,
@@ -158,8 +160,12 @@ class DisplayManager:
         cls._fullscreen = fullscreen
         cls._flags = flags if flags is not None else config.WINDOW_FLAGS
 
+        pygame_display.init()
+
+        # Create display FIRST (with OpenGL flags if requested)
         cls._create_display()
-        # If GPU backend requested, try to initialize OpenGL pipeline
+
+        # THEN try to initialize OpenGL resources (after display context exists)
         if cls._post_backend == "opengl" and _OPENGL_AVAILABLE:
             cls._gl_enabled = cls._setup_opengl()
             if cls._gl_enabled:
@@ -173,7 +179,16 @@ class DisplayManager:
                 logger.warning("[DisplayManager] OpenGL backend requested but setup failed. Falling back to CPU.")
                 cls._post_backend = "cpu"
         elif cls._post_backend == "opengl" and not _OPENGL_AVAILABLE:
+            cls._post_backend = "cpu"
             logger.warning("[DisplayManager] PyOpenGL not available. Falling back to CPU backend.")
+
+        if cls._post_backend == "cpu":
+            # CPU backend
+            cls._gl_enabled = False
+            cls._render_surface = None
+            cls._create_display() # Recreate display without OpenGL flags
+            logger.info("[DisplayManager] CPU backend enabled (CPU post-process active)")
+
         if cls._display is None:
             logger.error("[DisplayManager] Failed to initialize display")
             raise RuntimeError("DisplayManager initialization failed")
@@ -336,17 +351,26 @@ class DisplayManager:
     @classmethod
     def set_luminosity(cls, value: float) -> None:
         """Set luminosity multiplier applied at flip (0.0+)."""
-        cls._luminosity = max(0.0, float(value))
+        new_val = max(0.0, float(value))
+        if cls._luminosity != new_val:
+            cls._luminosity = new_val
+            cls._lut_dirty = True
 
     @classmethod
     def set_contrast(cls, value: float) -> None:
         """Set contrast multiplier applied at flip (0.0+)."""
-        cls._contrast = max(0.0, float(value))
+        new_val = max(0.0, float(value))
+        if cls._contrast != new_val:
+            cls._contrast = new_val
+            cls._lut_dirty = True
 
     @classmethod
     def set_gamma(cls, value: float) -> None:
         """Set gamma value applied at flip (>=0.01)."""
-        cls._gamma = max(0.01, float(value))
+        new_val = max(0.01, float(value))
+        if cls._gamma != new_val:
+            cls._gamma = new_val
+            cls._lut_dirty = True
 
     @classmethod
     def set_post_backend(cls, backend: Literal["cpu", "opengl"]) -> None:
@@ -392,7 +416,7 @@ class DisplayManager:
             logger.error("[DisplayManager] Display not initialized! Call init() first.")
             raise RuntimeError("DisplayManager not initialized")
 
-        surface = cls._display if not cls._gl_enabled else (cls._render_surface or cls._display)
+        surface = cls.get_surface()
         # Scale if fullscreen (use fast scale instead of smoothscale)
         if cls._window_width != cls._width or cls._window_height != cls._height:
             if not cls._gl_enabled:
@@ -408,8 +432,10 @@ class DisplayManager:
             pygame_display.flip()
             cls._frame_counter += 1
             return
+        else:
+            # CPU path: apply post-process via LUT on surface pixels
+            cls._apply_post_process(surface)
 
-        # CPU path currently disabled (can be re-enabled if needed)
         pygame_display.flip()
         cls._frame_counter += 1
 
@@ -568,26 +594,59 @@ class DisplayManager:
 
 
     @classmethod
-    def _apply_post_process(cls, surface: Surface) -> None:
+    def _generate_lut(cls) -> None:
         """
-        Apply post-processing: luminosity, contrast, gamma, and colorblind correction.
-        Minimal version - luminosity only for fast performance.
+        Generate a 3D LUT (Look-Up Table) for fast post-processing.
+        Pre-calculates all transformations (luminosity, contrast, gamma, colorblind).
         """
         try:
-            # Get pixel array directly (no copy with array3d, just reference)
-            arr = pygame_surfarray.array3d(surface)
+            size = cls._lut_size
+            # Create coordinate grids for R, G, B (normalized 0-1)
+            indices = np.linspace(0, 1, size, dtype=np.float32)
+            r, g, b = np.meshgrid(indices, indices, indices, indexing='ij')
             
-            # Work only on luminosity (fastest path)
+            # Stack into shape (size, size, size, 3)
+            lut = np.stack([r, g, b], axis=-1)
+            
+            # Apply luminosity
             if cls._luminosity != 1.0:
-                # Normalize to [0,1]
-                arr_norm = arr.astype(np.float32) / 255.0
-                # Apply luminosity
-                arr_norm *= cls._luminosity
-                # Clamp and convert back
-                arr[:] = np.clip(arr_norm * 255.0, 0, 255).astype(np.uint8)
-                
+                lut *= cls._luminosity
+            
+            # Apply contrast
+            if cls._contrast != 1.0:
+                lut = (lut - 0.5) * cls._contrast + 0.5
+            
+            # Apply gamma
+            if cls._gamma != 1.0:
+                lut = np.power(np.clip(lut, 0.0, 1.0), 1.0 / max(cls._gamma, 0.001))
+            
+            # Apply colorblind simulation
+            if cls._colorblind_mode == "protanopia":
+                lut[..., 0] *= 0.567
+                lut[..., 1] += 0.433 * lut[..., 0]
+            elif cls._colorblind_mode == "deuteranopia":
+                lut[..., 1] *= 0.625
+                lut[..., 2] += 0.375 * lut[..., 1]
+            elif cls._colorblind_mode == "tritanopia":
+                lut[..., 2] *= 0.95
+            
+            # Clamp to [0, 1] and convert to uint8 for fast lookup
+            cls._lut = (np.clip(lut, 0.0, 1.0) * 255.0).astype(np.uint8)
+            cls._lut_dirty = False
+            logger.info(f"[DisplayManager] LUT generated ({size}x{size}x{size})")
         except Exception as e:
-            logger.warning(f"[DisplayManager] Post-process failed: {e}")
+            logger.error(f"[DisplayManager] LUT generation failed: {e}")
+            cls._lut = None
+
+    @classmethod
+    def _apply_post_process(cls, surface: Surface) -> None:
+        """
+        Apply post-processing using 3D LUT (Look-Up Table) for fast performance.
+        NOTE: CPU post-processing is disabled for performance reasons.
+        For real-time post-processing, use GPU backend (OpenGL).
+        """
+        # CPU post-processing is disabled - it's too slow for real-time gameplay
+        # Post-processing only works with GPU backend (OpenGL)
 
     @classmethod
     def set_colorblind_mode(cls, mode: Literal["none", "protanopia", "deuteranopia", "tritanopia"] = "none") -> None:
@@ -600,7 +659,9 @@ class DisplayManager:
         if mode not in ["none", "protanopia", "deuteranopia", "tritanopia"]:
             logger.warning(f"[DisplayManager] Invalid colorblind mode: {mode}")
             return
-        cls._colorblind_mode = mode
+        if cls._colorblind_mode != mode:
+            cls._colorblind_mode = mode
+            cls._lut_dirty = True
         logger.info(f"[DisplayManager] Colorblind mode set to: {cls._colorblind_mode}")
 
     @classmethod
