@@ -5,24 +5,23 @@ game_libs.scene.base
 ___________________________________________________________________________________________________
 File infos:
 
-    - Author: Justine Roux
+    - Author: Justienr Roux
     - Version: 1.0
 ___________________________________________________________________________________________________
 Description:
-    This module defines the MainMenu class.
-    Displaying the main menu of the game before playing.
+    This module defines the PauseMenuScene class,
+    which enables the game to be paused and select various options.
 ___________________________________________________________________________________________________
 @copyright: Justine Roux 2026
 """
-
 # import needed built-in modules
 from __future__ import annotations
 from os.path import join
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 import pygame
 from ..managers.audio import AudioManager
 from ..managers.event import KeyState
-from ..transitions import FadeIn, FadeOut
+from ..transitions import FadeIn, FadeOut, DisintegrateLeft, IntegrateLeft, DisintegrateRight, IntegrateRight, DisintegrateDown, IntegrateDown, DisintegrateUp, IntegrateUp
 from . import BaseScene
 from ..assets_cache import AssetsCache
 from ..import config
@@ -31,25 +30,35 @@ from ..import config
 from .. import logger
 
 if TYPE_CHECKING:
+    from ..managers.scene import SceneManager
+    from ..managers.event import EventManager
     from pygame import Surface
 
-# ----- MainMenuScene class ----- #
-class MainMenuScene(BaseScene):
+# ----- PauseMenuScene class ----- #
+class PauseMenuScene(BaseScene):
     """
-    MainMenuScene object
+    PauseMenuScene object
+
+    This is the pause menu scene for the game.
     """
 
     def __init__(self) -> None:
-        super().__init__('MainMenu')
+        """
+        Initialize the PauseMenuScene.
+
+        Args:
+            - name (str): The name of the scene.
+        """
+        super().__init__('PauseMenu')
         self.title = 'SHIFT PROJECT'
-        self.options = ['Nouvelle partie',
-                        'Charger une partie',
+        self.options = ['Reprendre',
+                        'Sauvegarder',
                         'Options',
-                        'Crédits',
-                        'Quitter']
+                        'Retour au menu principal']
         self.cursor = 0
         self._title_font = None
         self._options_font = None
+        logger.info(f"[PauseMenu] Initialized scene: {self.name}")
 
     def init(self) -> None:
         """
@@ -58,7 +67,9 @@ class MainMenuScene(BaseScene):
         """
         self._title_font = AssetsCache.load_font(join(config.FONT_FOLDER, "Pixel Game.otf"), 64)
         self._options_font = AssetsCache.load_font(join(config.FONT_FOLDER, "Pixel Game.otf"), 32)
-        logger.info("[MainMenu] Scene initialized.")
+        logger.info("[PauseMenu] Scene initialized.")
+
+
 
     def on_enter(self) -> None:
         """
@@ -96,24 +107,22 @@ class MainMenuScene(BaseScene):
             self.cursor = (self.cursor + 1) % len(self.options)
         elif keys.get("JUMP") == KeyState.PRESSED:
             option = self.options[self.cursor]
-            if option == 'Nouvelle partie' :
-                self.scene_manager.change_scene('NewGame',
+            if option == 'Reprendre' :
+                self.scene_manager.change_scene('Tests',
                                                 transition_in=FadeIn(500),
                                                 transition_out=FadeOut(500))
-            elif option == 'Charger une partie' :
-                self.scene_manager.change_scene('LoadGame',
-                                                transition_in=FadeIn(500),
-                                                transition_out=FadeOut(500))
+            elif option == 'Sauvegarder' :
+                self.scene_manager.change_scene('SaveSelect',
+                                                transition_in=IntegrateUp(1500),
+                                                transition_out=DisintegrateUp(1500))
             elif option == 'Options' :
                 self.scene_manager.change_scene('Options',
-                                                transition_in=FadeIn(500),
-                                                transition_out=FadeOut(500))
-            elif option == 'Crédits' :
-                self.scene_manager.change_scene('Credits',
-                                                transition_in=FadeIn(500),
-                                                transition_out=FadeOut(500))
-            elif option == 'Quitter' :
-                pygame.event.post(pygame.event.Event(pygame.QUIT))
+                                                transition_in=IntegrateDown(1500),
+                                                transition_out=DisintegrateDown(1500))
+            elif option == 'Retour au menu principal' :
+                self.scene_manager.change_scene('MainMenu',
+                                                transition_in=IntegrateRight(1500),
+                                                transition_out=DisintegrateRight(1500))
 
 
     def render(self, surface: Surface) -> None:
@@ -138,6 +147,6 @@ class MainMenuScene(BaseScene):
                 text = self._options_font.render(option, True, (155, 255, 55))
             else:
                 text = self._options_font.render(option, True, (255, 255, 255))
-            text_rect = text.get_rect(topleft=(surface.get_width()* 2 // 3,
+            text_rect = text.get_rect(center=(surface.get_width()// 2,
                                                surface.get_height() // 2 + i * 40))
             surface.blit(text, text_rect)

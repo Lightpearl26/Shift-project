@@ -26,7 +26,9 @@ from ..header import ComponentTypes as C
 from ..rendering.entity_renderer import EntityRenderer
 from ..rendering.level_renderer import LevelRenderer
 from ..rendering.tilemap_renderer import TilemapRenderer
+from ..managers.event import KeyState
 from .base import BaseScene
+from ..transitions import FadeIn, FadeOut, DisintegrateLeft, IntegrateLeft, DisintegrateRight, IntegrateRight, DisintegrateDown, IntegrateDown, DisintegrateUp, IntegrateUp
 
 if TYPE_CHECKING:
     from pygame import Surface
@@ -125,4 +127,8 @@ class GameTestScene(BaseScene):
 
     def handle_events(self) -> None:
         """Handle scene-specific events (inputs are applied during update)."""
-        return
+        keys = self.event_manager.get_keys()
+        if keys.get("PAUSE") == KeyState.PRESSED:
+            self.scene_manager.change_scene('PauseMenu',
+                                                transition_in=FadeIn(500),
+                                                transition_out=FadeOut(500))
