@@ -30,10 +30,10 @@ def main():
     pygame.init()
 
     # Initialize managers
-    OptionsManager.init()
     DisplayManager.init()
     AudioManager.init()
     SceneManager.init()
+    OptionsManager.init()
 
     # load the first scene
     SceneManager.change_scene("Tests")
@@ -51,6 +51,28 @@ def main():
         if pygame.event.peek(pygame.QUIT):
             running = False
 
+        events: list = pygame.event.get(pygame.KEYDOWN)
+        for event in events:
+            if event.key == pygame.K_F11:
+                DisplayManager.toggle_fullscreen()
+            elif event.key == pygame.K_F1:
+                OptionsManager.set_luminosity(OptionsManager.get_luminosity() + 0.05)
+            elif event.key == pygame.K_F2:
+                OptionsManager.set_luminosity(OptionsManager.get_luminosity() - 0.05)
+            elif event.key == pygame.K_F3:
+                OptionsManager.set_contrast(OptionsManager.get_contrast() + 0.05)
+            elif event.key == pygame.K_F4:
+                OptionsManager.set_contrast(OptionsManager.get_contrast() - 0.05)
+            elif event.key == pygame.K_F5:
+                OptionsManager.set_gamma(OptionsManager.get_gamma() + 0.05)
+            elif event.key == pygame.K_F6:
+                OptionsManager.set_gamma(OptionsManager.get_gamma() - 0.05)
+            elif event.key == pygame.K_F7:
+                modes = ["none", "protanopia", "deuteranopia", "tritanopia"]
+                current = OptionsManager.get_colorblind_mode()
+                next_mode = modes[(modes.index(current) + 1) % len(modes)]
+                OptionsManager.set_colorblind_mode(next_mode)
+
         # update managers
         AudioManager.update()
         SceneManager.update(dt)
@@ -67,6 +89,12 @@ def main():
         if DEBUG_MODE:
             fps_text = fps_font.render(f"FPS: {DisplayManager.get_fps():.0f}", True, (255, 255, 0))
             surface.blit(fps_text, (10, 10))
+            adj_text = fps_font.render(
+                f"L:{OptionsManager.get_luminosity():.2f} C:{OptionsManager.get_contrast():.2f} G:{OptionsManager.get_gamma():.2f} CB:{OptionsManager.get_colorblind_mode()}",
+                True,
+                (0, 200, 255)
+            )
+            surface.blit(adj_text, (10, 30))
 
         # update display
         DisplayManager.flip()

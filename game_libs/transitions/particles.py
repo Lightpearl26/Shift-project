@@ -44,6 +44,8 @@ class Direction(Enum):
     DOWN = (0, 1)
     UP = (0, -1)
 
+TILE_SIZE_DEFAULT = 10
+
 
 # ----- Particle Transition Base Class ----- #
 class Particletransition(BaseTransition):
@@ -151,7 +153,7 @@ class DisintegrateRight(Particletransition):
     def __init__(self,
                  duration: float = 1500,
                  easing_func: Callable[[float], float] = lambda t: t):
-        super().__init__(Direction.RIGHT, "out", duration, 10, easing_func)
+        super().__init__(Direction.RIGHT, "out", duration, TILE_SIZE_DEFAULT, easing_func)
         logger.info("[DisintegrateRight] Initialized.")
 
 class IntegrateRight(Particletransition):
@@ -161,7 +163,7 @@ class IntegrateRight(Particletransition):
     def __init__(self,
                  duration: float = 1500,
                  easing_func: Callable[[float], float] = lambda t: t):
-        super().__init__(Direction.RIGHT, "in", duration, 10, easing_func)
+        super().__init__(Direction.RIGHT, "in", duration, TILE_SIZE_DEFAULT, easing_func)
         logger.info("[IntegrateRight] Initialized.")
 
 class DisintegrateLeft(Particletransition):
@@ -171,7 +173,7 @@ class DisintegrateLeft(Particletransition):
     def __init__(self,
                  duration: float = 1500,
                  easing_func: Callable[[float], float] = lambda t: t):
-        super().__init__(Direction.LEFT, "out", duration, 10, easing_func)
+        super().__init__(Direction.LEFT, "out", duration, TILE_SIZE_DEFAULT, easing_func)
         logger.info("[DisintegrateLeft] Initialized.")
 
 class IntegrateLeft(Particletransition):
@@ -181,7 +183,7 @@ class IntegrateLeft(Particletransition):
     def __init__(self,
                  duration: float = 1500,
                  easing_func: Callable[[float], float] = lambda t: t):
-        super().__init__(Direction.LEFT, "in", duration, 10, easing_func)
+        super().__init__(Direction.LEFT, "in", duration, TILE_SIZE_DEFAULT, easing_func)
         logger.info("[IntegrateLeft] Initialized.")
 
 class DisintegrateDown(Particletransition):
@@ -191,7 +193,7 @@ class DisintegrateDown(Particletransition):
     def __init__(self,
                  duration: float = 1500,
                  easing_func: Callable[[float], float] = lambda t: t):
-        super().__init__(Direction.DOWN, "out", duration, 10, easing_func)
+        super().__init__(Direction.DOWN, "out", duration, TILE_SIZE_DEFAULT, easing_func)
         logger.info("[DisintegrateDown] Initialized.")
 
 class IntegrateDown(Particletransition):
@@ -201,7 +203,7 @@ class IntegrateDown(Particletransition):
     def __init__(self,
                  duration: float = 1500,
                  easing_func: Callable[[float], float] = lambda t: t):
-        super().__init__(Direction.DOWN, "in", duration, 10, easing_func)
+        super().__init__(Direction.DOWN, "in", duration, TILE_SIZE_DEFAULT, easing_func)
         logger.info("[IntegrateDown] Initialized.")
 
 class DisintegrateUp(Particletransition):
@@ -211,7 +213,7 @@ class DisintegrateUp(Particletransition):
     def __init__(self,
                  duration: float = 1500,
                  easing_func: Callable[[float], float] = lambda t: t):
-        super().__init__(Direction.UP, "out", duration, 10, easing_func)
+        super().__init__(Direction.UP, "out", duration, TILE_SIZE_DEFAULT, easing_func)
         logger.info("[DisintegrateUp] Initialized.")
 
 class IntegrateUp(Particletransition):
@@ -221,5 +223,5 @@ class IntegrateUp(Particletransition):
     def __init__(self,
                  duration: float = 1500,
                  easing_func: Callable[[float], float] = lambda t: t):
-        super().__init__(Direction.UP, "in", duration, 10, easing_func)
+        super().__init__(Direction.UP, "in", duration, TILE_SIZE_DEFAULT, easing_func)
         logger.info("[IntegrateUp] Initialized.")

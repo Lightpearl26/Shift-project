@@ -47,6 +47,10 @@ class OptionsManager:
         fullscreen (bool): Whether fullscreen is enabled
         vsync (bool): Whether vsync is enabled
         fps_cap (int): FPS cap (0 = unlimited, otherwise 20-300)
+        luminosity (float): Screen luminosity multiplier applied at flip
+        contrast (float): Screen contrast multiplier applied at flip
+        gamma (float): Gamma value applied at flip (>= 0.01)
+        colorblind_mode (str): Colorblind simulation mode (none, protanopia, deuteranopia, tritanopia)
     
     Methods:
         set_master_volume(volume: float) -> None
@@ -76,6 +80,10 @@ class OptionsManager:
         "fullscreen": False,
         "vsync": True,
         "fps_cap": 0,  # 0 = unlimited
+        "luminosity": config.DISPLAY_LUMINOSITY,
+        "contrast": config.DISPLAY_CONTRAST,
+        "gamma": config.DISPLAY_GAMMA,
+        "colorblind_mode": "none",
         "key_bindings": {
             "UP": list(config.KEYS_UP),
             "DOWN": list(config.KEYS_DOWN),
@@ -128,6 +136,26 @@ class OptionsManager:
     def get_fps_cap(cls) -> int:
         """Get the FPS cap (0 = unlimited)."""
         return cls._options["fps_cap"]
+
+    @classmethod
+    def get_luminosity(cls) -> float:
+        """Get the luminosity multiplier."""
+        return cls._options["luminosity"]
+
+    @classmethod
+    def get_contrast(cls) -> float:
+        """Get the contrast multiplier."""
+        return cls._options["contrast"]
+
+    @classmethod
+    def get_gamma(cls) -> float:
+        """Get the gamma value."""
+        return cls._options["gamma"]
+
+    @classmethod
+    def get_colorblind_mode(cls) -> str:
+        """Get the colorblind mode."""
+        return cls._options.get("colorblind_mode", "none")
 
     # ----- Key Bindings Properties ----- #
     @classmethod
@@ -200,6 +228,37 @@ class OptionsManager:
         DisplayManager.set_fps_cap(cls._options["fps_cap"])
         logger.info(f"[OptionsManager] FPS cap set to: {cls._options['fps_cap']}")
 
+    @classmethod
+    def set_luminosity(cls, value: float) -> None:
+        """Set luminosity multiplier for display rendering."""
+        cls._options["luminosity"] = max(0.0, float(value))
+        DisplayManager.set_luminosity(cls._options["luminosity"])
+        logger.info(f"[OptionsManager] Luminosity set to: {cls._options['luminosity']}")
+
+    @classmethod
+    def set_contrast(cls, value: float) -> None:
+        """Set contrast multiplier for display rendering."""
+        cls._options["contrast"] = max(0.0, float(value))
+        DisplayManager.set_contrast(cls._options["contrast"])
+        logger.info(f"[OptionsManager] Contrast set to: {cls._options['contrast']}")
+
+    @classmethod
+    def set_gamma(cls, value: float) -> None:
+        """Set gamma value for display rendering (>= 0.01)."""
+        cls._options["gamma"] = max(0.01, float(value))
+        DisplayManager.set_gamma(cls._options["gamma"])
+        logger.info(f"[OptionsManager] Gamma set to: {cls._options['gamma']}")
+
+    @classmethod
+    def set_colorblind_mode(cls, mode: str) -> None:
+        """Set colorblind simulation mode."""
+        if mode not in ("none", "protanopia", "deuteranopia", "tritanopia"):
+            logger.warning(f"[OptionsManager] Unknown colorblind mode: {mode}")
+            return
+        cls._options["colorblind_mode"] = mode
+        DisplayManager.set_colorblind_mode(mode)
+        logger.info(f"[OptionsManager] Colorblind mode set to: {mode}")
+
     # ----- Key Bindings Setters ----- #
     @classmethod
     def set_action_keys(cls, action: str, keys: list[int]) -> None:
@@ -265,6 +324,10 @@ class OptionsManager:
             # since they may need display recreation
             DisplayManager.set_vsync(cls._options["vsync"])
             DisplayManager.set_fps_cap(cls._options["fps_cap"])
+            DisplayManager.set_luminosity(cls._options["luminosity"])
+            DisplayManager.set_contrast(cls._options["contrast"])
+            DisplayManager.set_gamma(cls._options["gamma"])
+            DisplayManager.set_colorblind_mode(cls._options.get("colorblind_mode", "none"))
             if DisplayManager.is_fullscreen() != cls._options["fullscreen"]:
                 DisplayManager.toggle_fullscreen()
             logger.info("[OptionsManager] Synchronized display settings")

@@ -7,25 +7,51 @@ ________________________________________________________________________________
 File infos:
 
     - Author: Franck Lafiteau
-    - Version: 1.0
+    - Version: 2.1
 ___________________________________________________________________________________________________
 Description:
     This module manages the display and window for the game.
+    Uses OpenCV for fast CPU-based post-processing (luminosity, contrast, gamma, colorblind modes).
 ___________________________________________________________________________________________________
 @copyright: Franck Lafiteau 2026
 """
 
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import Literal
 from pathlib import Path
 from datetime import datetime
+import numpy as np
+import ctypes
+try:
+    # OpenGL imports (optional, used when GPU post-process is enabled)
+    from OpenGL.GL import (
+        glCreateShader, glShaderSource, glCompileShader, glGetShaderiv, glGetShaderInfoLog,
+        GL_VERTEX_SHADER, GL_FRAGMENT_SHADER, GL_COMPILE_STATUS,
+        glCreateProgram, glAttachShader, glLinkProgram, glGetProgramiv, glGetProgramInfoLog,
+        GL_LINK_STATUS, glUseProgram, glGetUniformLocation, glUniform1f, glUniform1i,
+        glGenTextures, glBindTexture, glTexImage2D, glTexSubImage2D, glTexParameteri,
+        GL_TEXTURE_2D, GL_RGBA, GL_UNSIGNED_BYTE, GL_LINEAR, GL_CLAMP_TO_EDGE,
+        GL_TEXTURE_MIN_FILTER, GL_TEXTURE_MAG_FILTER, GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T,
+        glViewport, glClearColor, glClear, GL_COLOR_BUFFER_BIT,
+        glGenVertexArrays, glBindVertexArray,
+        glGenBuffers, glBindBuffer, glBufferData, GL_ARRAY_BUFFER,
+        glEnableVertexAttribArray, glVertexAttribPointer, GL_FLOAT,
+        glDrawArrays, GL_TRIANGLES,
+        glActiveTexture, GL_TEXTURE0, glPixelStorei, GL_UNPACK_ALIGNMENT, GL_STATIC_DRAW
+    )
+    _OPENGL_AVAILABLE = True
+except Exception:
+    _OPENGL_AVAILABLE = False
 
 # Import pygame
+from pygame import Surface
 from pygame import display as pygame_display
 from pygame import image as pygame_image
 from pygame import mouse as pygame_mouse
 from pygame import time as pygame_time
-from pygame import FULLSCREEN, SCALED
+from pygame import surfarray as pygame_surfarray
+from pygame import transform as pygame_transform
+from pygame import FULLSCREEN, OPENGL, DOUBLEBUF
 
 # Import config
 from .. import config
@@ -35,9 +61,6 @@ from .. import logger
 
 # Import AssetsCache
 from ..assets_cache import AssetsCache
-
-if TYPE_CHECKING:
-    from pygame import Surface
 
 
 # ----- DisplayManager class ----- #
@@ -68,6 +91,17 @@ class DisplayManager:
         save_screenshot(filename: str | None) -> None
         flip() -> None
         shutdown() -> None
+        get_luminosity() -> float
+        get_contrast() -> float
+        get_gamma() -> float
+        set_luminosity(value: float) -> None
+        set_contrast(value: float) -> None
+        set_gamma(value: float) -> None
+        get_delta_time() -> float
+        tick() -> None
+        get_fps() -> float
+        set_fps_cap(fps: int) -> None
+        get_fps_cap() -> int
     """
 
     _display: Surface | None = None
@@ -80,6 +114,25 @@ class DisplayManager:
     _max_framerate: int = 0  # 0 means unlimited
     _clock: pygame_time.Clock | None = None
     _delta_time: float = 0.0
+    _window_width: int = config.WINDOW_WIDTH
+    _window_height: int = config.WINDOW_HEIGHT
+    _luminosity: float = config.DISPLAY_LUMINOSITY
+    _contrast: float = config.DISPLAY_CONTRAST
+    _gamma: float = config.DISPLAY_GAMMA
+    _colorblind_mode: Literal["none", "protanopia", "deuteranopia", "tritanopia"] = "none"
+    _frame_counter: int = 0  # For post-process frame skipping
+    _post_backend: Literal["cpu", "opengl"] = "opengl"
+    _gl_enabled: bool = False
+    _render_surface: Surface | None = None
+    _gl_tex: int = 0
+    _gl_prog: int = 0
+    _gl_vao: int = 0
+    _gl_vbo: int = 0
+    _u_tex: int = -1
+    _u_l: int = -1
+    _u_c: int = -1
+    _u_g: int = -1
+    _u_cb: int = -1
 
     @classmethod
     def init(cls,
@@ -105,18 +158,25 @@ class DisplayManager:
         cls._fullscreen = fullscreen
         cls._flags = flags if flags is not None else config.WINDOW_FLAGS
 
-        # Build display flags
-        display_flags = cls._flags
-        if cls._fullscreen:
-            display_flags |= FULLSCREEN | SCALED
-
-        # Create the display with vsync
-        cls._display = pygame_display.set_mode(
-            (cls._width, cls._height),
-            display_flags,
-            vsync=int(cls._vsync)
-        )
-        pygame_display.set_caption(cls._caption)
+        cls._create_display()
+        # If GPU backend requested, try to initialize OpenGL pipeline
+        if cls._post_backend == "opengl" and _OPENGL_AVAILABLE:
+            cls._gl_enabled = cls._setup_opengl()
+            if cls._gl_enabled:
+                # Offscreen render surface for game drawing (same size as window)
+                try:
+                    cls._render_surface = Surface((cls._window_width, cls._window_height)).convert_alpha()
+                except Exception:
+                    cls._render_surface = Surface((cls._window_width, cls._window_height))
+                logger.info("[DisplayManager] OpenGL backend enabled (GPU post-process active)")
+            else:
+                logger.warning("[DisplayManager] OpenGL backend requested but setup failed. Falling back to CPU.")
+                cls._post_backend = "cpu"
+        elif cls._post_backend == "opengl" and not _OPENGL_AVAILABLE:
+            logger.warning("[DisplayManager] PyOpenGL not available. Falling back to CPU backend.")
+        if cls._display is None:
+            logger.error("[DisplayManager] Failed to initialize display")
+            raise RuntimeError("DisplayManager initialization failed")
 
         # Try to set icon from config
         try:
@@ -134,6 +194,33 @@ class DisplayManager:
                    f"fullscreen={cls._fullscreen}, caption='{cls._caption}'")
 
     @classmethod
+    def _create_display(cls) -> None:
+        """Create pygame display in windowed or fullscreen mode."""
+        display_flags = cls._flags
+        window_w = cls._width
+        window_h = cls._height
+
+        if cls._fullscreen:
+            display_flags |= FULLSCREEN
+            info = pygame_display.Info()
+            window_w, window_h = info.current_w, info.current_h
+
+        try:
+            pygame_display.quit()
+            # If OpenGL backend, request OPENGL|DOUBLEBUF
+            if cls._post_backend == "opengl":
+                display_flags |= OPENGL | DOUBLEBUF
+            cls._display = pygame_display.set_mode((window_w, window_h), display_flags, vsync=int(cls._vsync))
+            pygame_display.set_caption(cls._caption)
+            win_size = pygame_display.get_window_size()
+            cls._window_width = win_size[0]
+            cls._window_height = win_size[1]
+            logger.info(f"[DisplayManager] Display created: {cls._window_width}x{cls._window_height}")
+        except Exception as e:
+            logger.warning(f"[DisplayManager] Display creation failed: {e}")
+            cls._display = None
+
+    @classmethod
     def get_surface(cls) -> Surface:
         """
         Get the main display surface.
@@ -147,6 +234,9 @@ class DisplayManager:
         if cls._display is None:
             logger.error("[DisplayManager] Display not initialized! Call init() first.")
             raise RuntimeError("DisplayManager not initialized")
+        # When GL is enabled, return offscreen render surface for game drawing
+        if cls._gl_enabled and cls._render_surface is not None:
+            return cls._render_surface
         return cls._display
 
     @classmethod
@@ -180,6 +270,21 @@ class DisplayManager:
         return (cls._width, cls._height)
 
     @classmethod
+    def get_luminosity(cls) -> float:
+        """Get current luminosity factor."""
+        return cls._luminosity
+
+    @classmethod
+    def get_contrast(cls) -> float:
+        """Get current contrast factor."""
+        return cls._contrast
+
+    @classmethod
+    def get_gamma(cls) -> float:
+        """Get current gamma value."""
+        return cls._gamma
+
+    @classmethod
     def is_fullscreen(cls) -> bool:
         """
         Check if the window is in fullscreen mode.
@@ -199,25 +304,20 @@ class DisplayManager:
             return
 
         cls._fullscreen = not cls._fullscreen
-
-        # Build display flags (remove fullscreen flags first, then add if needed)
-        display_flags = cls._flags & ~(FULLSCREEN | SCALED)
-        if cls._fullscreen:
-            display_flags |= FULLSCREEN | SCALED
-
-        # Quit the current display and recreate with new flags
         try:
-            pygame_display.quit()
-            cls._display = pygame_display.set_mode(
-                (cls._width, cls._height),
-                display_flags,
-                vsync=int(cls._vsync))
-            pygame_display.set_caption(cls._caption)
+            cls._create_display()
             cls.show_cursor(config.SHOW_CURSOR)
             cls.set_icon(config.ICON_PATH)
+            # Recreate GL resources if using OpenGL backend
+            if cls._post_backend == "opengl" and _OPENGL_AVAILABLE:
+                cls._gl_enabled = cls._setup_opengl()
+                if cls._gl_enabled:
+                    try:
+                        cls._render_surface = Surface((cls._window_width, cls._window_height)).convert_alpha()
+                    except Exception:
+                        cls._render_surface = Surface((cls._window_width, cls._window_height))
             logger.info(f"[DisplayManager] Fullscreen toggled: {cls._fullscreen}")
         except Exception as e:
-            # If toggle fails, revert the state
             cls._fullscreen = not cls._fullscreen
             logger.error(f"[DisplayManager] Fullscreen toggle failed: {e}")
 
@@ -234,13 +334,279 @@ class DisplayManager:
         logger.info(f"[DisplayManager] Caption set to: '{caption}'")
 
     @classmethod
+    def set_luminosity(cls, value: float) -> None:
+        """Set luminosity multiplier applied at flip (0.0+)."""
+        cls._luminosity = max(0.0, float(value))
+
+    @classmethod
+    def set_contrast(cls, value: float) -> None:
+        """Set contrast multiplier applied at flip (0.0+)."""
+        cls._contrast = max(0.0, float(value))
+
+    @classmethod
+    def set_gamma(cls, value: float) -> None:
+        """Set gamma value applied at flip (>=0.01)."""
+        cls._gamma = max(0.01, float(value))
+
+    @classmethod
+    def set_post_backend(cls, backend: Literal["cpu", "opengl"]) -> None:
+        """Set the post-process backend and reinitialize display resources if needed."""
+        if backend not in ("cpu", "opengl"):
+            logger.warning(f"[DisplayManager] Invalid backend: {backend}")
+            return
+        if cls._post_backend == backend:
+            return
+        cls._post_backend = backend
+        # Recreate display with appropriate flags and GL resources
+        try:
+            cls._create_display()
+            cls.show_cursor(config.SHOW_CURSOR)
+            cls.set_icon(config.ICON_PATH)
+            if backend == "opengl" and _OPENGL_AVAILABLE:
+                cls._gl_enabled = cls._setup_opengl()
+                if cls._gl_enabled:
+                    try:
+                        cls._render_surface = Surface((cls._window_width, cls._window_height)).convert_alpha()
+                    except Exception:
+                        cls._render_surface = Surface((cls._window_width, cls._window_height))
+                    logger.info("[DisplayManager] Backend switched to OpenGL")
+                else:
+                    logger.warning("[DisplayManager] OpenGL setup failed during backend switch; falling back to CPU")
+                    cls._post_backend = "cpu"
+                    cls._gl_enabled = False
+                    cls._render_surface = None
+            else:
+                # CPU backend
+                cls._gl_enabled = False
+                cls._render_surface = None
+                logger.info("[DisplayManager] Backend switched to CPU")
+        except Exception as e:
+            logger.error(f"[DisplayManager] Backend switch failed: {e}")
+
+    @classmethod
     def flip(cls) -> None:
         """
-        Update the display (flip buffers).
-        
-        This should be called once per frame after all rendering is done.
+        Update the display (flip buffers) with post-processing applied.
         """
+        if cls._display is None:
+            logger.error("[DisplayManager] Display not initialized! Call init() first.")
+            raise RuntimeError("DisplayManager not initialized")
+
+        surface = cls._display if not cls._gl_enabled else (cls._render_surface or cls._display)
+        # Scale if fullscreen (use fast scale instead of smoothscale)
+        if cls._window_width != cls._width or cls._window_height != cls._height:
+            if not cls._gl_enabled:
+                surface = pygame_transform.scale(cls._display, (cls._window_width, cls._window_height))
+                cls._display.blit(surface, (0, 0))
+
+        if cls._gl_enabled:
+            # GPU path: upload render surface to GL texture, run post-process shader, present
+            # Log once on first GPU present to confirm the active path
+            if cls._frame_counter == 0:
+                logger.info("[DisplayManager] Using GPU pipeline for flip()")
+            cls._gl_present(surface)
+            pygame_display.flip()
+            cls._frame_counter += 1
+            return
+
+        # CPU path currently disabled (can be re-enabled if needed)
         pygame_display.flip()
+        cls._frame_counter += 1
+
+    # ----- OpenGL helpers -----
+    @classmethod
+    def _setup_opengl(cls) -> bool:
+        """Initialize OpenGL resources (shader, quad, texture)."""
+        try:
+            # Build shader program
+            vert_src = """
+            #version 330 core
+            layout(location = 0) in vec2 in_pos;
+            layout(location = 1) in vec2 in_uv;
+            out vec2 uv;
+            void main() {
+                uv = vec2(in_uv.x, 1.0 - in_uv.y);
+                gl_Position = vec4(in_pos, 0.0, 1.0);
+            }
+            """
+            frag_src = """
+            #version 330 core
+            uniform sampler2D u_tex;
+            uniform float u_luminosity;
+            uniform float u_contrast;
+            uniform float u_gamma;
+            uniform int u_cb_mode; // 0 none, 1 protanopia, 2 deuteranopia, 3 tritanopia
+            in vec2 uv;
+            out vec4 fragColor;
+
+            vec3 apply_colorblind(vec3 c) {
+                if (u_cb_mode == 1) {
+                    c.r *= 0.567;
+                    c.g += 0.433 * c.r;
+                } else if (u_cb_mode == 2) {
+                    c.g *= 0.625;
+                    c.b += 0.375 * c.g;
+                } else if (u_cb_mode == 3) {
+                    c.b *= 0.95;
+                }
+                return c;
+            }
+
+            void main() {
+                vec4 texel = texture(u_tex, uv);
+                vec3 c = texel.rgb;
+                // luminosity
+                c *= u_luminosity;
+                // contrast
+                c = (c - 0.5) * u_contrast + 0.5;
+                // gamma
+                c = pow(clamp(c, 0.0, 1.0), vec3(1.0 / max(u_gamma, 0.001)));
+                // colorblind
+                c = apply_colorblind(c);
+                fragColor = vec4(clamp(c, 0.0, 1.0), texel.a);
+            }
+            """
+            vs = glCreateShader(GL_VERTEX_SHADER)
+            glShaderSource(vs, vert_src)
+            glCompileShader(vs)
+            status = glGetShaderiv(vs, GL_COMPILE_STATUS)
+            if not status:
+                err = glGetShaderInfoLog(vs).decode()
+                logger.error(f"[DisplayManager] Vertex shader compile failed: {err}")
+                return False
+
+            fs = glCreateShader(GL_FRAGMENT_SHADER)
+            glShaderSource(fs, frag_src)
+            glCompileShader(fs)
+            status = glGetShaderiv(fs, GL_COMPILE_STATUS)
+            if not status:
+                err = glGetShaderInfoLog(fs).decode()
+                logger.error(f"[DisplayManager] Fragment shader compile failed: {err}")
+                return False
+
+            prog = glCreateProgram()
+            glAttachShader(prog, vs)
+            glAttachShader(prog, fs)
+            glLinkProgram(prog)
+            link_ok = glGetProgramiv(prog, GL_LINK_STATUS)
+            if not link_ok:
+                err = glGetProgramInfoLog(prog).decode()
+                logger.error(f"[DisplayManager] Program link failed: {err}")
+                return False
+            cls._gl_prog = prog
+
+            # Full-screen quad (NDC)
+            cls._gl_vao = glGenVertexArrays(1)
+            glBindVertexArray(cls._gl_vao)
+            cls._gl_vbo = glGenBuffers(1)
+            glBindBuffer(GL_ARRAY_BUFFER, cls._gl_vbo)
+            quad = np.array([
+                # x, y,   u, v
+                -1.0, -1.0, 0.0, 0.0,
+                 1.0, -1.0, 1.0, 0.0,
+                 1.0,  1.0, 1.0, 1.0,
+                -1.0, -1.0, 0.0, 0.0,
+                 1.0,  1.0, 1.0, 1.0,
+                -1.0,  1.0, 0.0, 1.0,
+            ], dtype=np.float32)
+            glBufferData(GL_ARRAY_BUFFER, quad.nbytes, quad, GL_STATIC_DRAW)
+            glEnableVertexAttribArray(0)
+            glVertexAttribPointer(0, 2, GL_FLOAT, False, 16, ctypes.c_void_p(0))
+            glEnableVertexAttribArray(1)
+            glVertexAttribPointer(1, 2, GL_FLOAT, False, 16, ctypes.c_void_p(8))
+
+            # Texture for uploaded surface
+            cls._gl_tex = glGenTextures(1)
+            glBindTexture(GL_TEXTURE_2D, cls._gl_tex)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+            # Allocate texture storage
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, cls._window_width, cls._window_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, None)
+            glBindTexture(GL_TEXTURE_2D, 0)
+
+            glViewport(0, 0, cls._window_width, cls._window_height)
+            glClearColor(0.0, 0.0, 0.0, 1.0)
+            glUseProgram(cls._gl_prog)
+            cls._u_tex = glGetUniformLocation(cls._gl_prog, "u_tex")
+            cls._u_l = glGetUniformLocation(cls._gl_prog, "u_luminosity")
+            cls._u_c = glGetUniformLocation(cls._gl_prog, "u_contrast")
+            cls._u_g = glGetUniformLocation(cls._gl_prog, "u_gamma")
+            cls._u_cb = glGetUniformLocation(cls._gl_prog, "u_cb_mode")
+            glUseProgram(0)
+            return True
+        except Exception as e:
+            logger.error(f"[DisplayManager] OpenGL setup failed: {e}")
+            return False
+
+    @classmethod
+    def _gl_present(cls, surface: Surface) -> None:
+        """Upload pygame surface to GL texture and render with shader."""
+        try:
+            # Convert surface to bytes for OpenGL upload (Y already flipped in shader)
+            img_data = pygame_image.tostring(surface, "RGBA", False)
+            glActiveTexture(GL_TEXTURE0)
+            glBindTexture(GL_TEXTURE_2D, cls._gl_tex)
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, cls._window_width, cls._window_height, GL_RGBA, GL_UNSIGNED_BYTE, img_data)
+
+            # Draw full-screen quad
+            glUseProgram(cls._gl_prog)
+            glUniform1i(cls._u_tex, 0)
+            glUniform1f(cls._u_l, float(cls._luminosity))
+            glUniform1f(cls._u_c, float(cls._contrast))
+            glUniform1f(cls._u_g, float(cls._gamma))
+            mode_map = {"none": 0, "protanopia": 1, "deuteranopia": 2, "tritanopia": 3}
+            glUniform1i(cls._u_cb, int(mode_map.get(cls._colorblind_mode, 0)))
+
+            glBindVertexArray(cls._gl_vao)
+            glBindTexture(GL_TEXTURE_2D, cls._gl_tex)
+            glDrawArrays(GL_TRIANGLES, 0, 6)
+            glBindTexture(GL_TEXTURE_2D, 0)
+        except Exception as e:
+            logger.warning(f"[DisplayManager] GL present failed: {e}")
+
+
+    @classmethod
+    def _apply_post_process(cls, surface: Surface) -> None:
+        """
+        Apply post-processing: luminosity, contrast, gamma, and colorblind correction.
+        Minimal version - luminosity only for fast performance.
+        """
+        try:
+            # Get pixel array directly (no copy with array3d, just reference)
+            arr = pygame_surfarray.array3d(surface)
+            
+            # Work only on luminosity (fastest path)
+            if cls._luminosity != 1.0:
+                # Normalize to [0,1]
+                arr_norm = arr.astype(np.float32) / 255.0
+                # Apply luminosity
+                arr_norm *= cls._luminosity
+                # Clamp and convert back
+                arr[:] = np.clip(arr_norm * 255.0, 0, 255).astype(np.uint8)
+                
+        except Exception as e:
+            logger.warning(f"[DisplayManager] Post-process failed: {e}")
+
+    @classmethod
+    def set_colorblind_mode(cls, mode: Literal["none", "protanopia", "deuteranopia", "tritanopia"] = "none") -> None:
+        """
+        Set the colorblind mode (applies simulation filter to post-process).
+        
+        Args:
+            - mode: "none", "protanopia", "deuteranopia", or "tritanopia"
+        """
+        if mode not in ["none", "protanopia", "deuteranopia", "tritanopia"]:
+            logger.warning(f"[DisplayManager] Invalid colorblind mode: {mode}")
+            return
+        cls._colorblind_mode = mode
+        logger.info(f"[DisplayManager] Colorblind mode set to: {cls._colorblind_mode}")
+
+    @classmethod
+    def get_colorblind_mode(cls) -> str:
+        """Get the current colorblind mode."""
+        return cls._colorblind_mode
 
     @classmethod
     def set_icon(cls, icon_path: str | None = None) -> None:
@@ -344,23 +710,12 @@ class DisplayManager:
 
         # Recreate display to apply vsync change
         if cls._display is not None:
-            display_flags = cls._flags
-            if cls._fullscreen:
-                display_flags |= FULLSCREEN | SCALED
-
             try:
-                pygame_display.quit()
-                cls._display = pygame_display.set_mode(
-                    (cls._width, cls._height),
-                    display_flags,
-                    vsync=int(cls._vsync)
-                )
-                pygame_display.set_caption(cls._caption)
+                cls._create_display()
                 cls.show_cursor(config.SHOW_CURSOR)
                 cls.set_icon(config.ICON_PATH)
                 logger.info(f"[DisplayManager] VSync {'enabled' if enabled else 'disabled'}")
             except Exception as e:
-                # If vsync change fails, revert
                 cls._vsync = not enabled
                 logger.error(f"[DisplayManager] VSync change failed: {e}")
 

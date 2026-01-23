@@ -45,6 +45,9 @@ WINDOW_SIZE: tuple[int, int] = (WINDOW_WIDTH, WINDOW_HEIGHT)
 WINDOW_CAPTION: str = "SHIFT PROJECT"
 WINDOW_FLAGS: int = NOFRAME
 SHOW_CURSOR: bool = False
+DISPLAY_LUMINOSITY: float = 1.0
+DISPLAY_CONTRAST: float = 1.0
+DISPLAY_GAMMA: float = 1.0
 
 # ----- Jumping constants ----- #
 JUMP_STRENGTH: float = 2.3e5 # N
