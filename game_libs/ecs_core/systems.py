@@ -251,14 +251,33 @@ def map_collision_system(engine: Engine, level: Level, dt: float) -> None:
         d = next_pos.value - hitbox.pos
         test_rect = hitbox.rect.copy()
         test_rect.center = hitbox.pos + d
-        step = d.normalize() if d.length() > 0 else Vector2(0, 0)
-
-        while d.dot(step) > 0 and level.tilemap.colliderect(test_rect):
-            d -= step # We adjust the position
-            test_rect.center = Vector2(test_rect.center) - step
 
         if level.tilemap.colliderect(test_rect):
-            # if still collisions we cancel movement
+            # On cherche la distance maximale sans collision sur chaque axe séparément
+            # Mouvement horizontal
+            temp_rect = hitbox.rect.copy()
+            temp_rect.center = hitbox.pos
+            dx = d.x
+            if dx != 0:
+                step_x = 1 if dx > 0 else -1
+                for i in range(int(abs(dx))):
+                    temp_rect.centerx += step_x
+                    if level.tilemap.colliderect(temp_rect):
+                        temp_rect.centerx -= step_x
+                        break
+            # Mouvement vertical
+            dy = d.y
+            if dy != 0:
+                step_y = 1 if dy > 0 else -1
+                for i in range(int(abs(dy))):
+                    temp_rect.centery += step_y
+                    if level.tilemap.colliderect(temp_rect):
+                        temp_rect.centery -= step_y
+                        break
+            test_rect = temp_rect
+
+        # Si toujours collision (cas extrême), on annule le mouvement
+        if level.tilemap.colliderect(test_rect):
             test_rect = hitbox.rect.copy()
 
         # Now that collisions are resolved we check for boundary collisions
