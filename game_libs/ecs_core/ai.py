@@ -20,6 +20,8 @@ from typing import Callable, Any, TYPE_CHECKING
 from operator import eq, ne, lt, le, gt, ge
 from pygame import Vector2
 
+from .. import logger
+
 if TYPE_CHECKING:
     from ..ecs_core.engine import Engine
     from ..level.level import Level
@@ -262,6 +264,55 @@ def ai_move_to(eid: int, engine: Engine, level: Level, dt: float, x: int, y: int
             vel.x = max(vel.x, -max_speed)
 
     return 0
+
+@ai_command("move_to_player")
+def ai_move_to_player(eid: int, engine: Engine, level: Level, dt: float) -> int:
+    """
+    Move the Entity to the player
+    """
+    pos = engine.get_component(level.player.eid, "Hitbox").pos
+    x, y = pos.x, pos.y
+    return ai_move_to(eid, engine, level, dt, x, y)
+    
+
+@ai_command("if")
+def ai_if(eid: int, engine: Engine, level: Level, dt: float, condition: dict, then: list, otherwise: list = None) -> int:
+    """
+    Commande conditionnelle :
+    - 'condition' : dict décrivant la condition (ex: {"type": ..., "params": {...}})
+    - 'then' : liste de commandes à exécuter si vrai
+    - 'otherwise' : liste de commandes à exécuter si faux (optionnel)
+    """
+    cond = AICondition.from_dict(condition)
+    cmds = then if cond.resolve(eid, engine, level) else (otherwise or [])
+    # On exécute chaque commande de la branche choisie
+    for cmd_dict in cmds:
+        cmd = AICommand.from_dict(cmd_dict)
+        result = cmd.run(eid, engine, level, dt)
+        if result == 0:
+            return 0  # Attendre la fin de la sous-commande
+    return 1  # Branche terminée
+
+@ai_command("jump")
+def ai_jump(eid: int, engine: Engine, level: Level, dt: float) -> int:
+    """
+    Initialize a jump
+    """
+    jump = engine.get_component(eid, "Jump")
+    state = engine.get_component(eid,"State")
+    ai_state = engine.get_component(eid, "AI")._ai_state
+    jumping = ai_state.get("jump", False)
+    if not jumping:
+        if state.has_flag("CAN_JUMP"):
+            jump.direction = 90.0
+            jump.time_left = jump.duration
+            ai_state["jump"] = True
+        return 0
+    else:
+        if state.has_flag("ON_GROUND"):
+            ai_state["jump"] = False
+            return 1
+        return 0
 
 # ----- AI conditions ----- #
 @ai_condition("True")

@@ -1,0 +1,49 @@
+{
+    "components": [
+        "Hitbox",
+        "Velocity",
+        "XDirection",
+        "Walk",
+        "AI",
+        "Mass",
+        "State",
+        "Jump",
+        "Properties",
+        "NextPosition",
+        "MapCollision",
+        "EntityCollision"
+    ],
+    "overrides": {
+        "Hitbox": {"width": 48, "height": 48},
+        "Velocity": {"x": 0, "y": 0},
+        "XDirection": {"value": 1},
+        "Walk": {"walk_speed": 150, "run_speed": 300},
+        "Mass": {"value": 100},
+        "AI": {
+            "name": "AIPageLogic",
+            "args": {
+                "pages": [
+                    {
+                        "condition": {"type": "True", "params": {}},
+                        "commands": [
+                            {
+                                "cmd": "if",
+                                "kargs": {
+                                    "condition": {"type": "distance_to_player", "params": {"operator": "<", "distance": 200}},
+                                    "then": [
+                                        {"cmd": "move_to_player"}
+                                    ],
+                                    "otherwise": [
+                                        {"cmd": "move_to", "kargs": {"x": 552, "y": 408}}
+                                    ]
+                                }
+                            },
+                            {"cmd": "jump"},
+                            {"cmd": "wait", "kargs": {"duration": 0.5}}
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+}
