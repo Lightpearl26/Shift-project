@@ -106,18 +106,18 @@ def player_control_system(engine: Engine, level: Level, dt: float) -> None:
             if keys.get("RIGHT") == KeyState.HELD:
                 xdir.value = 1.0
                 running = keys.get("SPRINT") == KeyState.HELD
-                state.add_flag(EntityState.RUNNING if running else EntityState.WALKING)
-                state.remove_flag(EntityState.WALKING if running else EntityState.RUNNING)
+                state.add_flag("RUNNING" if running else "WALKING")
+                state.remove_flag("WALKING" if running else "RUNNING")
 
             elif keys.get("LEFT") == KeyState.HELD:
                 xdir.value = -1.0
                 running = keys.get("SPRINT") == KeyState.HELD
-                state.add_flag(EntityState.RUNNING if running else EntityState.WALKING)
-                state.remove_flag(EntityState.WALKING if running else EntityState.RUNNING)
+                state.add_flag("RUNNING" if running else "WALKING")
+                state.remove_flag("WALKING" if running else "RUNNING")
 
             else:
-                state.remove_flag(EntityState.RUNNING)
-                state.remove_flag(EntityState.WALKING)
+                state.remove_flag("RUNNING")
+                state.remove_flag("WALKING")
 
 
 # ----- DragSystem ----- #
@@ -178,18 +178,18 @@ def jump_system(engine: Engine, level: Level, dt: float) -> None:
         mass: Mass = engine.get_component(eid, C.MASS)
 
         if jump.time_left > 0:
-            state.remove_flag(EntityState.CAN_JUMP)
-            state.add_flag(EntityState.JUMPING)
+            state.remove_flag("CAN_JUMP")
+            state.add_flag("JUMPING")
             jump.time_left -= dt
             t = radians(jump.direction)
             force = jump.strength * Vector2(cos(t), -sin(t))
             vel.value += force / mass.value * dt
         else:
-            state.remove_flag(EntityState.JUMPING)
+            state.remove_flag("JUMPING")
             if not state.has_flag("CAN_JUMP"):
-                state.add_flag(EntityState.FALLING)
+                state.add_flag("FALLING")
             else:
-                state.remove_flag(EntityState.FALLING)
+                state.remove_flag("FALLING")
 
 
 # ----- MovementSystem ----- #
@@ -293,41 +293,41 @@ def map_collision_system(engine: Engine, level: Level, dt: float) -> None:
             if xdir.value == 1.0 and not (col.top or col.bottom) and not state.has_flag("JUMPING"):
                 if engine.has_component(eid, C.WALLSTICKING):
                     wstick: WallSticking = engine.get_component(eid, C.WALLSTICKING)
-                    if not state.has_any_flags(EntityState.WALL_SLIDING, EntityState.WALL_STICKING):
-                        state.add_flag(EntityState.WALL_STICKING)
+                    if not state.has_any_flags("WALL_SLIDING", "WALL_STICKING"):
+                        state.add_flag("WALL_STICKING")
                         wstick.time_left = wstick.duration
                         vel.y = 0
                     else:
                         if wstick.time_left > 0:
                             wstick.time_left -= dt
                         else:
-                            state.remove_flag(EntityState.WALL_STICKING)
-                            state.add_flag(EntityState.WALL_SLIDING)
+                            state.remove_flag("WALL_STICKING")
+                            state.add_flag("WALL_SLIDING")
 
         elif col.left:
             vel.x = 0
             if xdir.value == -1.0 and not (col.top or col.bottom) and not state.has_flag("JUMPING"):
                 if engine.has_component(eid, C.WALLSTICKING):
                     wstick: WallSticking = engine.get_component(eid, C.WALLSTICKING)
-                    if not state.has_any_flags(EntityState.WALL_SLIDING, EntityState.WALL_STICKING):
-                        state.add_flag(EntityState.WALL_STICKING)
+                    if not state.has_any_flags("WALL_SLIDING", "WALL_STICKING"):
+                        state.add_flag("WALL_STICKING")
                         wstick.time_left = wstick.duration
                         vel.y = 0
                     else:
                         if wstick.time_left > 0:
                             wstick.time_left -= dt
                         else:
-                            state.remove_flag(EntityState.WALL_STICKING)
-                            state.add_flag(EntityState.WALL_SLIDING)
+                            state.remove_flag("WALL_STICKING")
+                            state.add_flag("WALL_SLIDING")
 
         else:
-            state.remove_flag(EntityState.WALL_SLIDING, EntityState.WALL_STICKING)
+            state.remove_flag("WALL_SLIDING", "WALL_STICKING")
 
         if col.bottom:
             vel.y = 0
-            state.add_flag(EntityState.ON_GROUND)
+            state.add_flag("ON_GROUND")
         else:
-            state.remove_flag(EntityState.ON_GROUND)
+            state.remove_flag("ON_GROUND")
 
         if col.top:
             vel.y = 60.0

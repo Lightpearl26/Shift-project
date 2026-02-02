@@ -271,19 +271,19 @@ class State(Component):
     """
     flags: EntityState = EntityState.NONE
 
-    def add_flag(self: State, *flags: EntityState) -> None:
+    def add_flag(self: State, *flags: str) -> None:
         """
         Add states to the current flags
         """
         for flag in flags:
-            self.flags |= flag
+            self.flags |= getattr(EntityState, flag)
 
-    def remove_flag(self: State, *flags: EntityState) -> None:
+    def remove_flag(self: State, *flags: str) -> None:
         """
         Remove states from the current flags
         """
         for flag in flags:
-            self.flags &= ~flag
+            self.flags &= ~getattr(EntityState, flag)
 
     def has_flag(self: State, *flags: str) -> bool:
         """
@@ -297,11 +297,11 @@ class State(Component):
         """
         return all(self.flags & flag for flag in flags)
 
-    def has_any_flags(self: State, *flags: EntityState) -> bool:
+    def has_any_flags(self: State, *flags: str) -> bool:
         """
         Test if Entity has any of the states listed
         """
-        return any(self.flags & flag for flag in flags)
+        return any(self.flags & getattr(EntityState, flag) for flag in flags)
 
 
 @dataclass
@@ -357,13 +357,20 @@ class AI(Component):
     """
     Ai of the Entity
     """
+    _ai_state: dict[str, any]
     logic: ai.Logic = ai.Idle()
 
     @classmethod
     def from_dict(cls, data: dict) -> AI:
-        logic_cls = getattr(ai, data.get("name", "Idle"))
+        logic_name = data.get("name", "Idle")
         args = data.get("args", {})
-        return cls(logic=logic_cls(**args))
+        logic_cls = getattr(ai, logic_name)
+        # Si c'est AIPageLogic, utiliser from_dict pour parser les pages
+        if logic_name == "AIPageLogic" and "pages" in args:
+            logic = logic_cls.from_dict(args)
+        else:
+            logic = logic_cls(**args)
+        return cls(logic=logic, _ai_state={})
 
 
 # ----- Action timers Components ----- #

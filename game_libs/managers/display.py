@@ -1,19 +1,43 @@
 # -*- coding: utf-8 -*-
 #pylint: disable=broad-except, unsubscriptable-object
 
-"""
-game_libs.managers.display
-___________________________________________________________________________________________________
-File infos:
+"""game_libs.managers.display
+=================================
 
-    - Author: Franck Lafiteau
-    - Version: 2.1
-___________________________________________________________________________________________________
-Description:
-    This module manages the display and window for the game.
-    Uses OpenCV for fast CPU-based post-processing (luminosity, contrast, gamma, colorblind modes).
-___________________________________________________________________________________________________
-@copyright: Franck Lafiteau 2026
+Lightweight display manager for the game.
+
+This module exposes the `DisplayManager` class which centralizes window
+creation and presentation for the game. It supports two post-processing
+backends:
+
+- "opengl": GPU-based post-process pipeline using a GLSL shader (preferred).
+- "cpu": CPU LUT-based post-process (provided but disabled for realtime by
+    default due to performance constraints).
+
+Key responsibilities
+- Initialize and configure the pygame display (windowed or fullscreen).
+- Optionally setup an OpenGL shader, texture and quad for GPU post-processing.
+- Provide a surface for game rendering (`get_surface()`), handle scaling for
+    fullscreen, and present frames with `flip()`.
+- Manage simple display settings: caption, icon, cursor visibility, vsync,
+    FPS cap, and basic color adjustments (luminosity / contrast / gamma) as
+    shader uniforms or via a generated LUT.
+
+Usage
+-----
+Call `DisplayManager.init(...)` once at startup. Use `get_surface()` to draw
+each frame, `flip()` to present the frame, and `shutdown()` before exiting.
+
+Notes
+-----
+- If PyOpenGL is not available or shader setup fails, the manager falls back
+    to the CPU backend automatically.
+- CPU post-processing is intentionally disabled for realtime gameplay; the
+    GLSL pipeline is the recommended path for interactive applications.
+
+Copyright
+---------
+Copyright (c) Franck Lafiteau 2026
 """
 
 from __future__ import annotations
@@ -64,43 +88,36 @@ from ..assets_cache import AssetsCache
 
 # ----- DisplayManager class ----- #
 class DisplayManager:
-    """
-    DisplayManager object
-    
-    This object manages the game window and display surface.
-    
-    Properties:
-        surface (Surface): The main display surface
-        width (int): Window width
-        height (int): Window height
-        size (tuple[int, int]): Window size (width, height)
-        fullscreen (bool): Whether fullscreen is active
-    
-    Methods:
-        init(width: int, height: int, caption: str, fullscreen: bool, flags: int) -> None
-        get_surface() -> Surface
-        get_width() -> int
-        get_height() -> int
-        get_size() -> tuple[int, int]
-        is_fullscreen() -> bool
-        toggle_fullscreen() -> None
-        set_caption(caption: str) -> None
-        set_icon(icon_path: str | None) -> None
-        show_cursor(visible: bool) -> None
-        save_screenshot(filename: str | None) -> None
-        flip() -> None
-        shutdown() -> None
-        get_luminosity() -> float
-        get_contrast() -> float
-        get_gamma() -> float
-        set_luminosity(value: float) -> None
-        set_contrast(value: float) -> None
-        set_gamma(value: float) -> None
-        get_delta_time() -> float
-        tick() -> None
-        get_fps() -> float
-        set_fps_cap(fps: int) -> None
-        get_fps_cap() -> int
+    """Manager that controls window, surface and presentation.
+
+    This class implements a singleton-style manager (class methods only)
+    responsible for creating the pygame window and providing a drawing
+    surface for the rest of the engine. It abstracts differences between a
+    pure pygame pipeline and an OpenGL-backed presentation pipeline.
+
+    Important attributes (class-level)
+    - `_display` : pygame display Surface or None (the actual OS window surface)
+    - `_render_surface` : offscreen Surface used when OpenGL backend is enabled
+    - `_gl_enabled` : whether the OpenGL GPU pipeline is active
+    - `_post_backend` : "opengl" or "cpu" (requested backend)
+    - `_lut` : precomputed 3D LUT if CPU post-process is used (may be None)
+    - `_window_width`, `_window_height` : actual window size returned by SDL
+    - `_width`, `_height` : requested logical render size (game resolution)
+
+    Public behaviour
+    - `init(...)` : initialize the display and optionally setup OpenGL
+    - `get_surface()` : returns the surface that game code should draw to
+    - `flip()` : present the current frame (applies post-processing)
+    - `tick()` / `get_delta_time()` : simple timing helpers (uses pygame.Clock)
+    - `set_post_backend()` : switch between CPU and OpenGL post-process backends
+
+    Example
+    -------
+    >>> DisplayManager.init(width=1280, height=720, caption="My Game")
+    >>> surf = DisplayManager.get_surface()
+    >>> # draw to surf, then:
+    >>> DisplayManager.flip()
+
     """
 
     _display: Surface | None = None
@@ -733,7 +750,7 @@ class DisplayManager:
         filepath = screenshots_dir / filename
 
         try:
-            pygame_image.save(cls._display, str(filepath))
+            pygame_image.save(cls.get_surface(), str(filepath))
             logger.info(f"[DisplayManager] Screenshot saved to: {filepath}")
         except Exception as e:
             logger.error(f"[DisplayManager] Failed to save screenshot: {e}")

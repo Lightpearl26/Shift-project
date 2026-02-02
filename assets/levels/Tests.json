@@ -15,12 +15,20 @@
     ],
     "player": {
         "Hitbox": {
-            "x": 2063,
-            "y": 821
+            "x": 400,
+            "y": 408
         }
     },
     "camera": {
         "x": 0.0,
         "y": 0.0
-    }
+    },
+    "entities": [
+        {
+            "name": "TestAI",
+            "overrides": {
+                "Hitbox": {"x": 360, "y": 408, "width": 48, "height": 48}
+            }
+        }
+    ]
 }

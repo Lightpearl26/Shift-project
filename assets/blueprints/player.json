@@ -17,7 +17,7 @@
     ],
     "overrides": {
         "Mass": {"value": 60.0},
-        "Hitbox": {"width": 48, "height": 96},
+        "Hitbox": {"width": 48, "height": 48},
         "CameraFollow": {"deadzone": [336, 192]}
     }
 }

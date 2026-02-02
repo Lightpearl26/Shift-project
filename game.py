@@ -1,4 +1,4 @@
-#!venv/Script/python
+#!venv/Scripts/python
 #-*- coding: utf-8 -*-
 
 """
@@ -21,24 +21,32 @@ from game_libs.managers.scene import SceneManager
 from game_libs.managers.display import DisplayManager
 from game_libs.managers.options import OptionsManager
 
+from game_libs import logger
+
 DEBUG_MODE = True
 
 # main function
 def main():
     """Main function to run the game."""
+    logger.info("======= Start Game =======")
     # Initialize pygame
     pygame.init()
 
     # Initialize managers
+    logger.info("======= Initialize Managers =======")
     DisplayManager.init()
     AudioManager.init()
     SceneManager.init()
     OptionsManager.init()
+    
+    # set backend to cpu
+    logger.info("======= Setup game =======")
 
     # load the first scene
     SceneManager.change_scene("Tests")
 
     fps_font = pygame.font.Font(None, 24)
+    logger.info("======= Start Main Loop =======")
 
     # Main game loop
     running = True
@@ -55,23 +63,11 @@ def main():
         for event in events:
             if event.key == pygame.K_F11:
                 DisplayManager.toggle_fullscreen()
-            elif event.key == pygame.K_F1:
-                OptionsManager.set_luminosity(OptionsManager.get_luminosity() + 0.05)
-            elif event.key == pygame.K_F2:
-                OptionsManager.set_luminosity(OptionsManager.get_luminosity() - 0.05)
+            elif event.key == pygame.K_F12:
+                DisplayManager.save_screenshot()
             elif event.key == pygame.K_F3:
-                OptionsManager.set_contrast(OptionsManager.get_contrast() + 0.05)
-            elif event.key == pygame.K_F4:
-                OptionsManager.set_contrast(OptionsManager.get_contrast() - 0.05)
-            elif event.key == pygame.K_F5:
-                OptionsManager.set_gamma(OptionsManager.get_gamma() + 0.05)
-            elif event.key == pygame.K_F6:
-                OptionsManager.set_gamma(OptionsManager.get_gamma() - 0.05)
-            elif event.key == pygame.K_F7:
-                modes = ["none", "protanopia", "deuteranopia", "tritanopia"]
-                current = OptionsManager.get_colorblind_mode()
-                next_mode = modes[(modes.index(current) + 1) % len(modes)]
-                OptionsManager.set_colorblind_mode(next_mode)
+                global DEBUG_MODE
+                DEBUG_MODE = not DEBUG_MODE
 
         # update managers
         AudioManager.update()
@@ -100,10 +96,12 @@ def main():
         DisplayManager.flip()
 
     # Exit properly
+    logger.info("======= Shutdown Game =======")
     DisplayManager.shutdown()
     OptionsManager.save()
     AudioManager.stop_all()
     pygame.quit()
+    logger.info("======= Game Closed =======")
 
 if __name__ == "__main__":
     main()

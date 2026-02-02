@@ -81,6 +81,13 @@ class AICondition:
     """
     type: str
     params: dict[str, Any]
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "AICondition":
+        return cls(
+            type=data["type"],
+            params=data.get("params", {})
+        )
 
     def resolve(self: AICondition, eid: int, engine: Engine, level: Level) -> bool:
         """
@@ -99,6 +106,13 @@ class AICommand:
     """
     cmd: str
     kargs: dict[str, Any]
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "AICommand":
+        return cls(
+            cmd=data["cmd"],
+            kargs=data.get("kargs", {})
+        )
 
     def run(self: AICommand, eid: int, engine: Engine, level: Level, dt: float) -> int:
         """
@@ -118,13 +132,20 @@ class AIPage:
     condition: AICondition
     commands: list[AICommand]
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "AIPage":
+        return cls(
+            condition=AICondition.from_dict(data["condition"]),
+            commands=[AICommand.from_dict(cmd) for cmd in data["commands"]]
+        )
+
 
 class AIPageLogic(Logic):
     """
     AI Page Logic
     """
     def __init__(self: AIPageLogic, pages: list[AIPage], **kwargs: dict) -> None:
-        Logic.__init__(**kwargs)
+        super().__init__(**kwargs)
         self.pages = pages
         self.current_page = 0
         self.command_index = 0
@@ -150,6 +171,11 @@ class AIPageLogic(Logic):
                 self.command_index += 1
         else:
             self.command_index = 0  # Reset for next call
+            
+    @classmethod
+    def from_dict(cls, data: dict) -> "AIPageLogic":
+        pages = [AIPage.from_dict(page) for page in data["pages"]]
+        return cls(pages=pages)
 
 
 # ----- AI commands ----- #
@@ -186,24 +212,56 @@ def ai_jump_to(eid: int, engine: Engine, level: Level, dt: float, commandline: i
 @ai_command("move_to")
 def ai_move_to(eid: int, engine: Engine, level: Level, dt: float, x: int, y: int) -> int:
     """
-    Move the Entity to the point (x, y)
-    This will not handle jumping nor collision but only X movement on ground
-    0 = not finished
-    1 = finished
+    Déplace l'entité vers (x, y) avec accélération/décélération naturelle.
+    - S'arrête progressivement à proximité.
+    - Gère la direction et la vitesse.
+    - Retourne 1 si la cible est atteinte (tolérance), sinon 0.
     """
     hitbox: Hitbox = engine.get_component(eid, "Hitbox")
     pos: Vector2 = hitbox.pos
-    speed_comp = engine.get_component(eid, "Walk").walk_speed
-    if pos.x != x:
-        xdir = engine.get_component(eid, "XDirection")
-        xdir.value = 1 if x > pos.x else -1
-        vel = engine.get_component(eid, "Velocity")
-        vel.x = xdir.value * speed_comp
-        return 0  # Not finished yet
-    else:
-        vel = engine.get_component(eid, "Velocity")
+    vel = engine.get_component(eid, "Velocity")
+    walk = engine.get_component(eid, "Walk")
+    xdir = engine.get_component(eid, "XDirection")
+    state = engine.get_component(eid, "State")
+
+    target = Vector2(x, y)
+    delta = target - pos
+    tolerance = 2.0  # px
+    max_speed = walk.walk_speed
+    accel = max_speed * 4  # px/s²
+    decel = max_speed * 6  # px/s²
+
+    # Si on est proche de la cible, on stoppe
+    if abs(delta.x) <= tolerance:
         vel.x = 0
-        return 1  # Finished
+        state.remove_flag("WALKING")
+        hitbox.pos.x = x  # Snap pour éviter l'oscillation
+        return 1
+
+    # Détermination de la direction
+    xdir.value = 1 if delta.x > 0 else -1
+    state.add_flag("WALKING")
+
+    # Décélération si on approche de la cible
+    stopping_dist = (vel.x ** 2) / (2 * decel) if decel > 0 else 0
+    if abs(delta.x) < abs(stopping_dist):
+        # Décélère
+        vel.x -= decel * dt * xdir.value
+        # Clamp la vitesse
+        if xdir.value > 0:
+            vel.x = max(0, min(vel.x, max_speed))
+        else:
+            vel.x = min(0, max(vel.x, -max_speed))
+    else:
+        # Accélère
+        vel.x += accel * dt * xdir.value
+        # Clamp la vitesse
+        if xdir.value > 0:
+            vel.x = min(vel.x, max_speed)
+        else:
+            vel.x = max(vel.x, -max_speed)
+
+    return 0
 
 # ----- AI conditions ----- #
 @ai_condition("True")
