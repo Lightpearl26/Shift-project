@@ -364,12 +364,21 @@ class AI(Component):
     def from_dict(cls, data: dict) -> AI:
         logic_name = data.get("name", "Idle")
         args = data.get("args", {})
+        
+        # Support pour les scripts AI via {"name": "AIPageLogic", "script": "script_name", "args": {...}}
+        if logic_name == "AIPageLogic" and "script" in data:
+            from ..assets_registry import AssetsRegistry
+            script_name = data["script"]
+            # Charge le script depuis l'assets_registry
+            parsed_script = AssetsRegistry.load_ai_script(script_name)
+            # Décode en AIPageLogic avec substitution des arguments
+            pages = ai.decode_ai_script_dict(parsed_script, args)
+            logic = ai.AIPageLogic(pages=pages)
+            return cls(logic=logic, _ai_state={})
+        
+        # Fallback: méthode originale (pour AIPageLogic direct ou autres Logic)
         logic_cls = getattr(ai, logic_name)
-        # Si c'est AIPageLogic, utiliser from_dict pour parser les pages
-        if logic_name == "AIPageLogic" and "pages" in args:
-            logic = logic_cls.from_dict(args)
-        else:
-            logic = logic_cls(**args)
+        logic = logic_cls(**args)
         return cls(logic=logic, _ai_state={})
 
 

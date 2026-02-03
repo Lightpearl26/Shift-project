@@ -1,0 +1,15 @@
+# Script pour TestAI - déplacement entre deux points
+args:
+    target1_x: int = 552  # Position X première cible
+    target1_y: int = 408  # Position Y première cible
+    target2_x: int = 360  # Position X deuxième cible
+    target2_y: int = 408  # Position Y deuxième cible
+    wait_time: float = 1.0  # Durée d'attente entre les déplacements
+
+page:
+    condition: True
+    commands:
+        move_to $target1_x $target1_y
+        wait $wait_time
+        move_to $target2_x $target2_y
+        wait $wait_time

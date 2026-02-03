@@ -50,6 +50,9 @@ from . import config
 # import logger
 from . import logger
 
+# import ai script parser
+from .ecs_core.ai import parse_ai_script
+
 if TYPE_CHECKING:
     from .ecs_core.engine import Engine
 
@@ -64,6 +67,7 @@ class AssetsRegistry:
     _parallax: dict[tuple, ParallaxData] = {}
     _blueprints: dict[str, EntityBlueprint] = {}
     _levels: dict[str, Level] = {}
+    _ai_scripts: dict[str, dict] = {}
 
     @classmethod
     def clear_cache(cls) -> None:
@@ -75,6 +79,7 @@ class AssetsRegistry:
         cls._parallax.clear()
         cls._levels.clear()
         cls._blueprints.clear()
+        cls._ai_scripts.clear()
 
         logger.debug("AssetsRegistry cache cleared")
 
@@ -122,7 +127,7 @@ class AssetsRegistry:
             cls._tilesets[tileset_name] = TilesetData(tileset_name, tiles, tsize)
             logger.info(f"Tileset [{tileset_name}] loaded and cached")
 
-        logger.debug(f"Tileset [{tileset_name}] loaded successfully")
+        logger.info(f"Tileset [{tileset_name}] loaded successfully")
         return cls._tilesets[tileset_name]
 
     @classmethod
@@ -144,7 +149,7 @@ class AssetsRegistry:
                 
             logger.info(f"Parallax [{parallax_key}] loaded and cached")
 
-        logger.debug(f"Parallax [{parallax_key}] loaded successfully")
+        logger.info(f"Parallax [{parallax_key}] loaded successfully")
         return cls._parallax[key]
 
     @classmethod
@@ -163,7 +168,6 @@ class AssetsRegistry:
                 bgs = data.get("bgs")
                 tileset = cls.load_tileset(data.get("tileset"))
                 grid = data.get("tiles")
-                entities = data.get("entities", [])
                 parallax = [cls.load_parallax(d) for d in data.get("parallax", [])]
 
             cls._tilemaps[tilemap_name] = TilemapData(
@@ -173,12 +177,11 @@ class AssetsRegistry:
                 bgm,
                 bgs,
                 grid,
-                entities,
                 parallax
             )
             logger.info(f"Tilemap [{tilemap_name}] loaded and cached")
 
-        logger.debug(f"Tilemap [{tilemap_name}] loaded successfully")
+        logger.info(f"Tilemap [{tilemap_name}] loaded successfully")
         return cls._tilemaps[tilemap_name]
 
     @classmethod
@@ -199,7 +202,7 @@ class AssetsRegistry:
             )
             logger.info(f"Blueprint [{blueprint_name}] loaded and cached")
 
-        logger.debug(f"Blueprint [{blueprint_name}] loaded successfully")
+        logger.info(f"Blueprint [{blueprint_name}] loaded successfully")
         return cls._blueprints[blueprint_name]
 
     @classmethod
@@ -239,7 +242,7 @@ class AssetsRegistry:
             entity = cls.new_entity(engine, entity_data)
             level.entities.append(entity)
 
-        logger.debug(f"Level [{level_name}] loaded successfully")
+        logger.info(f"Level [{level_name}] loaded successfully")
         return level
 
     @classmethod
@@ -249,7 +252,7 @@ class AssetsRegistry:
         if is_player is True return a Player instance instead
         """
         entity_blueprint = cls.load_blueprint(entity_data.get("name"))
-        logger.debug(f"Creating entity from blueprint: {entity_blueprint.name}")
+        logger.info(f"Creating entity from blueprint: {entity_blueprint.name}")
         eid = engine.new_entity()
         sprite = None # TODO: sprite handling
 
@@ -258,10 +261,10 @@ class AssetsRegistry:
                 **entity_blueprint.overrides.get(comp_name, {}),
                 **entity_data.get("overrides", {}).get(comp_name, {})
             }
-            logger.debug(f"Adding component {comp_name} to entity {eid} with overrides {overrides}")
+            logger.info(f"Adding component {comp_name} to entity {eid} with overrides {overrides}")
             engine.add_component(eid, C.from_str(comp_name), overrides)
 
-        logger.debug(f"Entity [{entity_blueprint.name}] created with eid {eid}")
+        logger.info(f"Entity [{entity_blueprint.name}] created with eid {eid}")
         if is_player:
             return Player(eid, engine, sprite, entity_data.get("overrides", {}))
         return EntityData(eid, engine, sprite, entity_data.get("overrides", {}))
@@ -300,5 +303,21 @@ class AssetsRegistry:
         """
         return {
             asset_type: cls.list_assets(asset_type)
-            for asset_type in ["tileset", "tilemap", "blueprint", "level"]
+            for asset_type in ["tileset", "tilemap", "blueprint", "level", "ai_script"]
         }
+
+    @classmethod
+    def load_ai_script(cls, script_name: str) -> dict:
+        """
+        Load and return the AI script named by script_name
+        If already loaded once return it from cache
+        """
+        if script_name not in cls._ai_scripts:
+            with open(join(config.AI_SCRIPTS_FOLDER, f"{script_name}.ai"),
+                    "r",
+                    encoding="utf-8") as file:
+                script_content = file.read()
+                parsed = parse_ai_script(script_content)
+                cls._ai_scripts[script_name] = parsed
+                logger.debug(f"AI script '{script_name}' loaded and cached")
+        return cls._ai_scripts[script_name]

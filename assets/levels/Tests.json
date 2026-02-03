@@ -27,7 +27,14 @@
         {
             "name": "TestAI_ifelse",
             "overrides": {
-                "Hitbox": {"x": 360, "y": 408, "width": 48, "height": 48}
+                "Hitbox": {"x": 360, "y": 408, "width": 48, "height": 48},
+                "AI": {
+                    "args": {
+                        "target_x": 552,
+                        "target_y": 408,
+                        "wait_time": 0.5
+                    }
+                }
             }
         }
     ]

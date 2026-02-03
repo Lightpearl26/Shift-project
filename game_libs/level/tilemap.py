@@ -107,7 +107,6 @@ class TilemapData:
     bgm: str
     bgs: str
     grid: list[list[int]]
-    entities: list[dict]
     parallax: list[ParallaxData]
 
     def _hitbox_at(self, x: int, y: int) -> bool:

@@ -78,6 +78,7 @@ LEVELS_FOLDER: str = join("assets", "levels")
 AUDIO_FOLDER: str = join("assets", "audio")
 VIDEOS_FOLDER: str = join("assets", "video")
 FONT_FOLDER: str = join("assets", "fonts")
+AI_SCRIPTS_FOLDER: str = join("assets", "ai_scripts")
 ICON_PATH: str = "icon.ico"
 
 # ----- Tilemap constants ----- #

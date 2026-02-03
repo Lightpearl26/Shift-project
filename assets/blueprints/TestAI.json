@@ -18,19 +18,8 @@
         "Walk": {"walk_speed": 120, "run_speed": 240},
         "AI": {
             "name": "AIPageLogic",
-            "args": {
-                "pages": [
-                    {
-                        "condition": {"type": "True", "params": {}},
-                        "commands": [
-                            {"cmd": "move_to", "kargs": {"x": 552, "y": 408}},
-                            {"cmd": "wait", "kargs": {"duration": 1.0}},
-                            {"cmd": "move_to", "kargs": {"x": 360, "y": 408}},
-                            {"cmd": "wait", "kargs": {"duration": 1.0}}
-                        ]
-                    }
-                ]
-            }
+            "script": "patrol",
+            "args": {}
         }
     }
 }

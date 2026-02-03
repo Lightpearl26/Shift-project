@@ -1,0 +1,16 @@
+# Exemple de script AI pour TestAI_ifelse
+# Utilisation d'arguments avec valeurs par défaut et documentation
+args:
+    target_x: int = 100  # Position X cible
+    target_y: int = 50   # Position Y cible
+    wait_time: float = 1.0  # Durée d'attente en secondes
+
+page:
+    condition: True
+    commands:
+        if distance_to_player(<200):
+            move_to_player
+        else:
+            move_to $target_x $target_y
+        wait $wait_time
+        jump

@@ -21,29 +21,8 @@
         "Mass": {"value": 100},
         "AI": {
             "name": "AIPageLogic",
-            "args": {
-                "pages": [
-                    {
-                        "condition": {"type": "True", "params": {}},
-                        "commands": [
-                            {
-                                "cmd": "if",
-                                "kargs": {
-                                    "condition": {"type": "distance_to_player", "params": {"operator": "<", "distance": 200}},
-                                    "then": [
-                                        {"cmd": "move_to_player"}
-                                    ],
-                                    "otherwise": [
-                                        {"cmd": "move_to", "kargs": {"x": 552, "y": 408}}
-                                    ]
-                                }
-                            },
-                            {"cmd": "jump"},
-                            {"cmd": "wait", "kargs": {"duration": 0.5}}
-                        ]
-                    }
-                ]
-            }
+            "script": "example",
+            "args": {}
         }
     }
 }
