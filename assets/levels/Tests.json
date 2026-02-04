@@ -36,6 +36,21 @@
                     }
                 }
             }
+        },
+        {
+            "name": "TestAI",
+            "overrides": {
+                "Hitbox": {"x": 360, "y": 408, "width": 48, "height": 48},
+                "AI": {
+                    "args": {
+                        "point_a_x": 360,
+                        "point_a_y": 408,
+                        "point_b_x": 552,
+                        "point_b_y": 408,
+                        "wait_time": 0.5
+                    }
+                }
+            }
         }
     ]
 }

@@ -19,8 +19,11 @@ from dataclasses import dataclass
 from typing import Callable, Any, TYPE_CHECKING
 from operator import eq, ne, lt, le, gt, ge
 from pygame import Vector2
+import inspect
+import re
 
 from .. import logger
+from ..managers.audio import AudioManager
 
 if TYPE_CHECKING:
     from ..ecs_core.engine import Engine
@@ -37,10 +40,6 @@ AI_COND_ARGS: dict[str, list[str]] = {}
 
 
 # ----- Decorators ----- #
-
-import inspect
-import re
-
 def ai_command(name: str) -> Callable:
     """
     Decorator to register an AI command and its argument names
@@ -291,7 +290,6 @@ def ai_move_to_player(eid: int, engine: Engine, level: Level, dt: float) -> int:
     pos = engine.get_component(level.player.eid, "Hitbox").pos
     x, y = pos.x, pos.y
     return ai_move_to(eid, engine, level, dt, x, y)
-    
 
 @ai_command("if")
 def ai_if(eid: int, engine: Engine, level: Level, dt: float, condition: dict, then: list, otherwise: list = None) -> int:
@@ -331,6 +329,69 @@ def ai_jump(eid: int, engine: Engine, level: Level, dt: float) -> int:
             ai_state["jump"] = False
             return 1
         return 0
+
+@ai_command("move_left")
+def ai_move_left(eid: int, engine: Engine, level: Level, dt: float) -> int:
+    """
+    Move the entity to the left
+    """
+    pos = engine.get_component(level.player.eid, "Hitbox").pos
+    return ai_move_to(eid, engine, level, dt, pos.x-48, pos.y)
+
+@ai_command("move_right")
+def ai_move_right(eid: int, engine: Engine, level: Level, dt: float) -> int:
+    """
+    Move the entity to the right
+    """
+    pos = engine.get_component(level.player.eid, "Hitbox").pos
+    return ai_move_to(eid, engine, level, dt, pos.x+48, pos.y)
+
+@ai_command("play_sound")
+def ai_play_sound(eid: int, engine: Engine, level: Level, dt: float, sound_id: str) -> int:
+    """
+    Play a sound effect
+    """
+    AudioManager.play_se(sound_id)
+    return 1
+
+@ai_command("change_state")
+def ai_change_state(eid: int, engine: Engine, level: Level, dt: float, flag: str, value: str = "add") -> int:
+    """
+    Add or remove a state flag
+    flag: the flag name to modify
+    value: "add" to add flag, "remove" to remove flag
+    """
+    state = engine.get_component(eid, "State")
+    if state:
+        if value == "remove":
+            state.remove_flag(flag)
+        else:  # default to "add"
+            state.add_flag(flag)
+    return 1
+
+@ai_command("set_variable")
+def ai_set_variable(eid: int, engine: Engine, level: Level, dt: float, name: str, value: any) -> int:
+    """
+    Set an AI state variable
+    """
+    ai_comp = engine.get_component(eid, "AI")
+    if ai_comp:
+        ai_comp._ai_state[name] = value
+    return 1
+
+@ai_command("initiate_jump")
+def ai_initiate_jump(eid: int, engine: Engine, level: Level, dt: float) -> int:
+    """
+    Initiate a jump without blocking (returns immediately)
+    """
+    jump = engine.get_component(eid, "Jump")
+    state = engine.get_component(eid, "State")
+    
+    if state and state.has_flag("CAN_JUMP") and jump:
+        jump.direction = 90.0
+        jump.time_left = jump.duration
+    return 1
+
 
 # ----- AI conditions ----- #
 @ai_condition("True")
@@ -428,6 +489,8 @@ def ai_condition_variable(eid: int,
     """
     ai_comp = engine.get_component(eid, "AI")
     var_value = ai_comp._ai_state.get(name)
+    if not var_value:
+        return False
 
     ops = {
         "=": eq, "==": eq,
@@ -470,11 +533,53 @@ def ai_condition_distance_to_player(eid: int,
         raise ValueError(f"Unknown operator '{operator}' in distance_to_player condition.")
     return op_func(dist, distance)
 
+@ai_condition("has_flag")
+def ai_condition_has_flag(eid: int,
+                         engine: Engine,
+                         level: Level,
+                         flag: str) -> bool:
+    """
+    Vérifie si l'entité possède un flag d'état spécifique.
+    """
+    state = engine.get_component(eid, "State")
+    if state:
+        return state.has_flag(flag)
+    return False
+
+@ai_condition("line_of_sight")
+def ai_condition_line_of_sight(eid: int,
+                               engine: Engine,
+                               level: Level,
+                               target_eid: int = None) -> bool:
+    """
+    Vérifie s'il y a une ligne de vue dégagée vers la cible (par défaut le joueur).
+    Utilise un raycasting simplifié pour vérifier les collisions.
+    """
+    if target_eid is None:
+        target_eid = level.player.eid
+    
+    entity_pos: Vector2 = engine.get_component(eid, "Hitbox").pos
+    target_pos: Vector2 = engine.get_component(target_eid, "Hitbox").pos
+    
+    raise NotImplementedError
+
+@ai_condition("collision_at")
+def ai_condition_collision_at(eid: int,
+                              engine: Engine,
+                              level: Level,
+                              direction: str) -> bool:
+    """
+    Vérifie s'il y a une collision dans une direction donnée.
+    direction: "left", "right", "up", "down"
+    """
+    col = engine.get_component(eid, "MapCollision")
+    return getattr(col, direction, False)
+
 
 # ----- AI Script Parser ----- #
-
 class AIScriptParseError(Exception):
     pass
+
 
 def parse_args_block(lines: list[str]) -> dict[str, dict[str, Any]]:
     """
