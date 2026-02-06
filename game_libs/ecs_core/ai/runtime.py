@@ -15,6 +15,7 @@ from pygame import Vector2
 from .registry import AI_CMD_REGISTRY, AI_COND_REGISTRY, ai_command, ai_condition
 from .components import AICondition, AICommand
 from ...managers.dialog import DialogManager
+from ...managers.audio import AudioManager
 
 if TYPE_CHECKING:
     from ..engine import Engine
@@ -184,6 +185,12 @@ def ai_jump(eid: int, engine: Engine, level: Level, dt: float) -> int:
             jump.direction = 90.0
             jump.time_left = jump.duration
             ai_state["jump"] = True
+            player_distance = engine.get_component(eid, "Hitbox").pos.distance_to(
+                engine.get_component(level.player.eid, "Hitbox").pos
+            )
+            max_distance = 1000.0 # 10m (1m = 100px)
+            volume = max(0.0, min(1.0, 1 - (player_distance / max_distance)))
+            AudioManager.play_se("JUMP", volume_modifier=volume)
         return 0
     if state.has_flag("ON_GROUND"):
         ai_state["jump"] = False
@@ -234,6 +241,20 @@ def ai_initiate_jump(eid: int, engine: Engine, level: Level, dt: float) -> int:
     if state and state.has_flag("CAN_JUMP") and jump:
         jump.direction = 90.0
         jump.time_left = jump.duration
+        # adjust channel sound with player distance
+        player_distance = engine.get_component(eid, "Hitbox").pos.distance_to(
+            engine.get_component(level.player.eid, "Hitbox").pos
+        )
+        max_distance = 1000.0 # 10m (1m = 100px)
+        volume = max(0.0, min(1.0, 1 - (player_distance / max_distance)))
+        AudioManager.play_se("JUMP", volume_modifier=volume)
+    return 1
+
+
+@ai_command("play_sound")
+def ai_play_sound(eid: int, engine: Engine, level: Level, dt: float, name: str) -> int:
+    """Play a sound effect."""
+    AudioManager.play_se(name)
     return 1
 
 

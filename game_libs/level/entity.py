@@ -23,6 +23,7 @@ from ..header import ComponentTypes as C
 if TYPE_CHECKING:
     from ..ecs_core.engine import Engine
     from ..ecs_core.components import Velocity, State, Jump, Walk, XDirection
+    from pygame import Vector2
 
 
 # ----- EntityBlueprint ----- #
@@ -58,6 +59,13 @@ class Player(EntityData):
     engine: Engine
     sprite: Surface
     overrides: dict[str, dict]
+    
+    @property
+    def pos(self) -> Vector2:
+        """
+        Position of the player
+        """
+        return self.engine.get_component(self.eid, C.HITBOX).pos
 
     @property
     def velocity(self) -> Velocity:

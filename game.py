@@ -41,11 +41,12 @@ def main():
     
     # set backend to cpu
     logger.info("======= Setup game =======")
+    DisplayManager.set_post_backend("cpu")
 
     # load the first scene
     SceneManager.change_scene("Tests")
 
-    fps_font = pygame.font.Font(None, 24)
+    fps_font = pygame.font.SysFont("Consolas", 24)
     logger.info("======= Start Main Loop =======")
 
     # Main game loop
@@ -83,14 +84,57 @@ def main():
 
         # Debug fps
         if DEBUG_MODE:
+            # FPS
             fps_text = fps_font.render(f"FPS: {DisplayManager.get_fps():.0f}", True, (255, 255, 0))
             surface.blit(fps_text, (10, 10))
-            adj_text = fps_font.render(
-                f"L:{OptionsManager.get_luminosity():.2f} C:{OptionsManager.get_contrast():.2f} G:{OptionsManager.get_gamma():.2f} CB:{OptionsManager.get_colorblind_mode()}",
+            
+            # Options
+            lum_text = fps_font.render(
+                f"L:{OptionsManager.get_luminosity():.2f}",
                 True,
                 (0, 200, 255)
             )
-            surface.blit(adj_text, (10, 30))
+            cont_text = fps_font.render(
+                f"C:{OptionsManager.get_contrast():.2f}",
+                True,
+                (0, 200, 255)
+            )
+            gam_text = fps_font.render(
+                f"G:{OptionsManager.get_gamma():.2f}",
+                True,
+                (0, 200, 255)
+            )
+            cb_text = fps_font.render(
+                f"CB:{OptionsManager.get_colorblind_mode()}",
+                True,
+                (0, 200, 255)
+            )
+            surface.blit(lum_text, (10, 50))
+            surface.blit(cont_text, (10, 70))
+            surface.blit(gam_text, (10, 90))
+            surface.blit(cb_text, (10, 110))
+            
+            # Current scene
+            scene = SceneManager.get_current_scene()
+            if scene:
+                scene_text = fps_font.render(
+                    f"Scene: {scene.name}",
+                    True,
+                    (255, 255, 0)
+                )
+                surface.blit(scene_text, (10, 150))
+                
+            # If scene is game_test, display player position
+            if scene and scene.name == "Tests":
+                player = getattr(scene, "player", None)
+                if player:
+                    pos_text = fps_font.render(
+                        f"Player Pos: ({player.pos.x:.0f}, {player.pos.y:.0f})",
+                        True,
+                        (150, 150, 150)
+                    )
+                    surface.blit(pos_text, (10, 190))
+            
 
         # update display
         DisplayManager.flip()
