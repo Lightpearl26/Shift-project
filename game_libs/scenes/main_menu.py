@@ -42,7 +42,7 @@ class MainMenuScene(BaseScene):
     def __init__(self) -> None:
         super().__init__('MainMenu')
         self.title = 'SHIFT PROJECT'
-        self.options = ['Nouvelle partie',
+        self.options = ['Lancer le test',
                         'Charger une partie',
                         'Options',
                         'Crédits',
@@ -96,8 +96,8 @@ class MainMenuScene(BaseScene):
             self.cursor = (self.cursor + 1) % len(self.options)
         elif keys.get("JUMP") == KeyState.PRESSED:
             option = self.options[self.cursor]
-            if option == 'Nouvelle partie' :
-                self.scene_manager.change_scene('NewGame',
+            if option == 'Lancer le test' :
+                self.scene_manager.change_scene('Tests',
                                                 transition_in=FadeIn(500),
                                                 transition_out=FadeOut(500))
             elif option == 'Charger une partie' :

@@ -21,8 +21,8 @@ from pygame import Rect, Vector2
 # import configs
 from .. import config
 
-# import ai
-from . import ai
+# import ai structures
+from .ai import components as ai
 
 
 # ----- Base class ----- #
@@ -359,11 +359,14 @@ class AI(Component):
     """
     _ai_state: dict[str, any]
     logic: ai.Logic = ai.Idle()
+    runtime: any = None
 
     @classmethod
     def from_dict(cls, data: dict) -> AI:
+        from .ai.runtime import AIRuntime
         logic_name = data.get("name", "Idle")
         args = data.get("args", {})
+        runtime = AIRuntime()
         
         # Support pour les scripts AI via {"name": "AIPageLogic", "script": "script_name", "args": {...}}
         if logic_name == "AIPageLogic" and "script" in data:
@@ -374,12 +377,12 @@ class AI(Component):
             # Décode en AIPageLogic avec substitution des arguments
             pages = ai.decode_ai_script_dict(parsed_script, args)
             logic = ai.AIPageLogic(pages=pages)
-            return cls(logic=logic, _ai_state={})
+            return cls(logic=logic, _ai_state={}, runtime=runtime)
         
         # Fallback: méthode originale (pour AIPageLogic direct ou autres Logic)
         logic_cls = getattr(ai, logic_name)
         logic = logic_cls(**args)
-        return cls(logic=logic, _ai_state={})
+        return cls(logic=logic, _ai_state={}, runtime=runtime)
 
 
 # ----- Action timers Components ----- #

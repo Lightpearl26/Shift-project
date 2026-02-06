@@ -1,0 +1,13 @@
+# Trigger a dialog once when the player is close
+page:
+    condition: True
+    commands:
+        if distance_to_player(<200):
+            if variable(dialog_read==True):
+                idle
+            else:
+                set_variable dialog_read True
+                dialog Lorem
+        else:
+            wait 2.0
+            set_variable dialog_read False

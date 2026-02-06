@@ -3,7 +3,7 @@
 	"files": ["Outside_A1.png", "Outside_A2.png"],
 	"tiles": [
 		{"file": "Outside_A2.png", "type": "field", "hitbox": 0, "frames": [[0, 0]], "animation_delay": 0.333},
-		{"file": "Outside_A2.png", "type": "field", "hitbox": 0, "frames": [[2, 0]], "animation_delay": 0.333},
+		{"file": "Outside_A2.png", "type": "field", "hitbox": 1, "frames": [[2, 0]], "animation_delay": 0.333},
 		{"file": "Outside_A2.png", "type": "field", "hitbox": 0, "frames": [[4, 0]], "animation_delay": 0.333},
 		{"file": "Outside_A2.png", "type": "field", "hitbox": 1, "frames": [[6, 0]], "animation_delay": 0.333},
 		{"file": "Outside_A2.png", "type": "field", "hitbox": 0, "frames": [[8, 0]], "animation_delay": 0.333},
@@ -31,7 +31,7 @@
 		{"file": "Outside_A2.png", "type": "field", "hitbox": 0, "frames": [[4, 9]], "animation_delay": 0.333},
 		{"file": "Outside_A2.png", "type": "field", "hitbox": 0, "frames": [[6, 9]], "animation_delay": 0.333},
 		{"file": "Outside_A2.png", "type": "field", "hitbox": 0, "frames": [[8, 9]], "animation_delay": 0.333},
-		{"file": "Outside_A2.png", "type": "field", "hitbox": 1, "frames": [[10, 9]], "animation_delay": 0.333},
+		{"file": "Outside_A2.png", "type": "field", "hitbox": 0, "frames": [[10, 9]], "animation_delay": 0.333},
 		{"file": "Outside_A2.png", "type": "field", "hitbox": 1, "frames": [[12, 9]], "animation_delay": 0.333},
 		{"file": "Outside_A1.png", "type": "field", "hitbox": 1, "frames": [[0, 0], [2, 0], [4, 0]], "animation_delay": 0.333},
 		{"file": "Outside_A1.png", "type": "fall", "hitbox": 1, "frames": [[14, 0], [14, 1], [14, 2]], "animation_delay": 0.333}

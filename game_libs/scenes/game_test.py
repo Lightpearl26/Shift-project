@@ -26,9 +26,11 @@ from ..header import ComponentTypes as C
 from ..rendering.entity_renderer import EntityRenderer
 from ..rendering.level_renderer import LevelRenderer
 from ..rendering.tilemap_renderer import TilemapRenderer
+from ..dialog.runtime import DialogRuntime
+from ..managers.dialog import DialogManager
 from ..managers.event import KeyState
 from .base import BaseScene
-from ..transitions import FadeIn, FadeOut, DisintegrateLeft, IntegrateLeft, DisintegrateRight, IntegrateRight, DisintegrateDown, IntegrateDown, DisintegrateUp, IntegrateUp
+from ..transitions import FadeIn, FadeOut
 
 if TYPE_CHECKING:
     from pygame import Surface
@@ -48,6 +50,8 @@ class GameTestScene(BaseScene):
         self._alpha: float = 0.0
         self._fixed_dt: float = 1.0 / config.TPS_MAX if config.TPS_MAX > 0 else 0.0
         self._max_substeps: int = 5
+        self._dialog_runtime: DialogRuntime | None = None
+        self._dialog_runtime_name: str | None = None
         logger.info(f"[GameTestScene] Scene '{self.name}' initialized.")
 
     def _reset_render_state(self) -> None:
@@ -80,11 +84,17 @@ class GameTestScene(BaseScene):
         """Initialize the scene and preload the level."""
         self.engine = Engine()
         self._load_level()
+        self._dialog_runtime = None
+        self._dialog_runtime_name = None
+        DialogManager.clear()
         logger.info(f"[GameTestScene] Scene '{self.name}' init called.")
 
     def on_enter(self) -> None:
         """Reload state whenever the scene becomes active."""
         self._load_level()
+        self._dialog_runtime = None
+        self._dialog_runtime_name = None
+        DialogManager.clear()
         logger.info(f"[GameTestScene] Entered scene '{self.name}'.")
 
     def on_exit(self) -> None:
@@ -104,6 +114,7 @@ class GameTestScene(BaseScene):
             self.engine.update(self.level, dt)
             self._alpha = 0.0
             self._accumulator = 0.0
+            self._update_dialogs(dt)
             return
 
         substeps = 0
@@ -117,6 +128,7 @@ class GameTestScene(BaseScene):
             substeps += 1
 
         self._alpha = min(self._accumulator / self._fixed_dt, 1.0)
+        self._update_dialogs(dt)
 
     def render(self, surface: Surface) -> None:
         """Draw the current level using interpolated transforms."""
@@ -124,11 +136,34 @@ class GameTestScene(BaseScene):
             return
 
         LevelRenderer.render(surface, self.level, self._alpha)
+        if self._dialog_runtime and self._dialog_runtime.active:
+            self._dialog_runtime.render(surface)
+
+    def _update_dialogs(self, dt: float) -> None:
+        if not self.engine:
+            return
+
+        if self._dialog_runtime and self._dialog_runtime.active:
+            self._dialog_runtime.update(dt)
+            if not self._dialog_runtime.active and self._dialog_runtime_name is not None:
+                DialogManager.mark_done(self._dialog_runtime_name)
+                self._dialog_runtime_name = None
+            return
+
+        name = DialogManager.request_next()
+        if not name:
+            return
+
+        if self._dialog_runtime is None:
+            self._dialog_runtime = DialogRuntime(AssetsRegistry.load_dialog)
+
+        self._dialog_runtime_name = name
+        self._dialog_runtime.start_autorun(name)
 
     def handle_events(self) -> None:
         """Handle scene-specific events (inputs are applied during update)."""
         keys = self.event_manager.get_keys()
         if keys.get("PAUSE") == KeyState.PRESSED:
             self.scene_manager.change_scene('PauseMenu',
-                                                transition_in=FadeIn(500),
-                                                transition_out=FadeOut(500))
+                                            transition_in=FadeIn(500),
+                                            transition_out=FadeOut(500))

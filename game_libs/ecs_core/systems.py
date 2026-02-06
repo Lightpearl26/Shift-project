@@ -67,8 +67,9 @@ def ai_system(engine: Engine, level: Level, dt: float) -> None:
     System calling AI logics for entities
     """
     for eid in engine.get_entities_with(C.AI):
-        logic: Logic = engine.get_component(eid, C.AI).logic
-        logic(eid, engine, level, dt)
+        ai_comp = engine.get_component(eid, C.AI)
+        logic: Logic = ai_comp.logic
+        logic(eid, engine, level, dt, ai_comp.runtime)
 
 
 # ----- PlayerControlSystem ----- #

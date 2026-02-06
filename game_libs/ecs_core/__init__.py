@@ -17,3 +17,5 @@ from . import (
     systems,
     engine
 )
+
+from .ai import runtime as ai_runtime

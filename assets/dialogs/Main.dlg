@@ -1,0 +1,45 @@
+<dialog "Main">
+    <paragraph>
+        Hello there.
+        This is a test dialog.
+    </paragraph>
+    <choice>
+        <paragraph>
+            Do you want to continue?
+        </paragraph>
+        <option "Yes">
+            <goto "YesPath" />
+        </option>
+        <option "No">
+            <paragraph>
+                You chose no.
+            </paragraph>
+        </option>
+        <option "Maybe">
+            <goto "MaybePath" />
+        </option>
+    </choice>
+    <paragraph>
+        After the choice, we continue.
+    </paragraph>
+</dialog>
+
+<dialog "YesPath">
+    <paragraph>
+        You said yes.
+    </paragraph>
+    <paragraph>
+        This path ends here.
+    </paragraph>
+</dialog>
+
+<dialog "MaybePath">
+    <paragraph>
+        You are not sure.
+        That is fine too.
+    </paragraph>
+    <paragraph>
+        Take your time to make a descision
+    </paragraph>
+    <goto "Main" />
+</dialog>

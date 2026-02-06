@@ -1,0 +1,18 @@
+<dialog "Lorem">
+    <paragraph>
+        la j'écrit juste du texte pour voir
+        si c'est assez simple a lire à cette vitesse.
+        Mais j'ai l'impression que c'est trop long.
+        (On s'ennuie quand le texte a fini de défiler)
+    </paragraph>
+    <paragraph>
+        Ut enim ad minim veniam,
+        quis nostrud exercitation
+        ullamco laboris nisi.
+    </paragraph>
+    <paragraph>
+        Duis aute irure dolor
+        in reprehenderit in voluptate
+        velit esse cillum.
+    </paragraph>
+</dialog>

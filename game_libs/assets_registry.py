@@ -51,10 +51,14 @@ from . import config
 from . import logger
 
 # import ai script parser
-from .ecs_core.ai import parse_ai_script
+from .ecs_core.ai.components import parse_ai_script
+
+# import dialog parser
+from .dialog.parser import parse_dialog_file
 
 if TYPE_CHECKING:
     from .ecs_core.engine import Engine
+    from .dialog.component import Dialog
 
 
 # ----- AssetsRegistry ----- #
@@ -68,6 +72,7 @@ class AssetsRegistry:
     _blueprints: dict[str, EntityBlueprint] = {}
     _levels: dict[str, Level] = {}
     _ai_scripts: dict[str, dict] = {}
+    _dialogs: dict[str, Dialog] = {}
 
     @classmethod
     def clear_cache(cls) -> None:
@@ -80,6 +85,7 @@ class AssetsRegistry:
         cls._levels.clear()
         cls._blueprints.clear()
         cls._ai_scripts.clear()
+        cls._dialogs.clear()
 
         logger.debug("AssetsRegistry cache cleared")
 
@@ -321,3 +327,22 @@ class AssetsRegistry:
                 cls._ai_scripts[script_name] = parsed
                 logger.debug(f"AI script '{script_name}' loaded and cached")
         return cls._ai_scripts[script_name]
+
+    @classmethod
+    def load_dialog(cls, dialog_name: str) -> Dialog:
+        """
+        Load and return the Dialog named by dialog_name
+        If already loaded once return it from cache
+        """
+        if dialog_name not in cls._dialogs:
+            dialogs = parse_dialog_file(join(config.DIALOGS_FOLDER, f"{dialog_name}.dlg"))
+            # Cache all dialogs from the file
+            for name, dialog in dialogs.items():
+                if name not in cls._dialogs:
+                    cls._dialogs[name] = dialog
+            logger.debug(f"Dialog file '{dialog_name}.dlg' loaded and cached ({len(dialogs)} dialogs)")
+        
+        if dialog_name not in cls._dialogs:
+            raise ValueError(f"Dialog '{dialog_name}' not found in '{dialog_name}.dlg'")
+        
+        return cls._dialogs[dialog_name]
