@@ -16,6 +16,7 @@ ________________________________________________________________________________
 """
 
 from __future__ import annotations
+from typing import Literal
 from pathlib import Path
 import json
 
@@ -78,7 +79,7 @@ class OptionsManager:
         "me_volume": 1.0,
         "se_volume": 1.0,
         "fullscreen": False,
-        "vsync": True,
+        "backend": "cpu",
         "fps_cap": 0,  # 0 = unlimited
         "luminosity": config.DISPLAY_LUMINOSITY,
         "contrast": config.DISPLAY_CONTRAST,
@@ -128,9 +129,9 @@ class OptionsManager:
         return cls._options["fullscreen"]
 
     @classmethod
-    def is_vsync_enabled(cls) -> bool:
-        """Check if vsync is enabled."""
-        return cls._options["vsync"]
+    def get_backend(cls) -> Literal["cpu", "opengl"]:
+        """Get the current backend used."""
+        return cls._options["backend"]
 
     @classmethod
     def get_fps_cap(cls) -> int:
@@ -216,10 +217,10 @@ class OptionsManager:
             DisplayManager.toggle_fullscreen()
 
     @classmethod
-    def set_vsync(cls, enabled: bool) -> None:
-        """Set vsync state."""
-        cls._options["vsync"] = enabled
-        DisplayManager.set_vsync(enabled)
+    def set_backend(cls, backend: Literal["cpu", "opengl"]) -> None:
+        """Set backend process."""
+        cls._options["backend"] = backend
+        DisplayManager.set_post_backend(backend)
 
     @classmethod
     def set_fps_cap(cls, fps: int) -> None:
@@ -323,6 +324,7 @@ class OptionsManager:
             # Note: Fullscreen toggle and vsync need special handling
             # since they may need display recreation
             DisplayManager.set_vsync(cls._options["vsync"])
+            DisplayManager.set_post_backend(cls._options["backend"])
             DisplayManager.set_fps_cap(cls._options["fps_cap"])
             DisplayManager.set_luminosity(cls._options["luminosity"])
             DisplayManager.set_contrast(cls._options["contrast"])

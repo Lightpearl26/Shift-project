@@ -112,7 +112,7 @@ class DialogRuntime:
 
         max_text_width = panel_rect.width - self._padding * 2
         line_height = self._font.get_linesize()
-        max_lines = max(1, (panel_rect.height - self._padding * 2) // line_height)
+        max_lines = 4
 
         rendered_lines: list[str] = []
         remaining = self._char_index
@@ -132,7 +132,7 @@ class DialogRuntime:
         y = panel_rect.top + self._padding
         for line in rendered_lines:
             text_surf = self._font.render(line, True, (255, 255, 255))
-            surface.blit(text_surf, (panel_rect.left + self._padding, y))
+            surface.blit(text_surf, (panel_rect.left + self._padding + 20, y))
             y += line_height
 
     def _wrap_line(self, text: str, max_width: int) -> list[str]:

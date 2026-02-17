@@ -91,7 +91,6 @@ class GameTestScene(BaseScene):
 
     def on_enter(self) -> None:
         """Reload state whenever the scene becomes active."""
-        self._load_level()
         self._dialog_runtime = None
         self._dialog_runtime_name = None
         DialogManager.clear()
@@ -155,7 +154,8 @@ class GameTestScene(BaseScene):
             return
 
         if self._dialog_runtime is None:
-            self._dialog_runtime = DialogRuntime(AssetsRegistry.load_dialog)
+            font_size = config.WINDOW_HEIGHT // 24
+            self._dialog_runtime = DialogRuntime(AssetsRegistry.load_dialog, font_size=font_size, padding=5)
 
         self._dialog_runtime_name = name
         self._dialog_runtime.start_autorun(name)

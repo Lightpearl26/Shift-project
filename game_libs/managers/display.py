@@ -788,14 +788,7 @@ class DisplayManager:
 
         # Recreate display to apply vsync change
         if cls._display is not None:
-            try:
-                cls._create_display()
-                cls.show_cursor(config.SHOW_CURSOR)
-                cls.set_icon(config.ICON_PATH)
-                logger.info(f"[DisplayManager] VSync {'enabled' if enabled else 'disabled'}")
-            except Exception as e:
-                cls._vsync = not enabled
-                logger.error(f"[DisplayManager] VSync change failed: {e}")
+            cls.init(fullscreen=cls.is_fullscreen())
 
     @classmethod
     def is_vsync_enabled(cls) -> bool:

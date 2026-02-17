@@ -13,7 +13,7 @@ ________________________________________________________________________________
 
 # import external modules
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 from os import listdir
 from os.path import join, splitext
 from json import load
@@ -59,6 +59,7 @@ from .dialog.parser import parse_dialog_file
 if TYPE_CHECKING:
     from .ecs_core.engine import Engine
     from .dialog.component import Dialog
+    Asset = TilemapData | EntityBlueprint | TilesetData | Level | dict | Dialog
 
 
 # ----- AssetsRegistry ----- #
@@ -279,7 +280,7 @@ class AssetsRegistry:
     def list_assets(cls, asset_type: str) -> list[str]:
         """
         Return a list of available assets by type (from filesystem).
-        asset_type: "tileset" | "tilemap" | "blueprint" | "level"
+        asset_type: "tileset" | "tilemap" | "blueprint" | "level | ai_script | dialog"
         """
         if asset_type == "tileset":
             folder = config.TILESET_DATA_FOLDER
@@ -293,6 +294,12 @@ class AssetsRegistry:
         elif asset_type == "level":
             folder = config.LEVELS_FOLDER
             ext = ".json"
+        elif asset_type == "ai_script":
+            folder = config.AI_SCRIPTS_FOLDER
+            ext = ".ai"
+        elif asset_type == "dialog":
+            folder = config.DIALOGS_FOLDER
+            ext = ".dlg"
         else:
             raise ValueError(f"Unknown asset type: {asset_type}")
 
@@ -309,7 +316,7 @@ class AssetsRegistry:
         """
         return {
             asset_type: cls.list_assets(asset_type)
-            for asset_type in ["tileset", "tilemap", "blueprint", "level", "ai_script"]
+            for asset_type in ["tileset", "tilemap", "blueprint", "level", "ai_script", "dialog"]
         }
 
     @classmethod
@@ -325,7 +332,7 @@ class AssetsRegistry:
                 script_content = file.read()
                 parsed = parse_ai_script(script_content)
                 cls._ai_scripts[script_name] = parsed
-                logger.debug(f"AI script '{script_name}' loaded and cached")
+                logger.info(f"AI script [{script_name}] loaded and cached")
         return cls._ai_scripts[script_name]
 
     @classmethod
@@ -340,9 +347,27 @@ class AssetsRegistry:
             for name, dialog in dialogs.items():
                 if name not in cls._dialogs:
                     cls._dialogs[name] = dialog
-            logger.debug(f"Dialog file '{dialog_name}.dlg' loaded and cached ({len(dialogs)} dialogs)")
-        
+            logger.info(f"Dialog file [{dialog_name}.dlg] loaded and cached ({len(dialogs)} dialogs)")
+
         if dialog_name not in cls._dialogs:
-            raise ValueError(f"Dialog '{dialog_name}' not found in '{dialog_name}.dlg'")
-        
+            raise ValueError(f"Dialog [{dialog_name}] not found in [{dialog_name}.dlg]")
+
         return cls._dialogs[dialog_name]
+
+    @classmethod
+    def load_all_assets(cls) -> None:
+        """
+        Load all available assets stored in assets folders
+        """
+        # first we list all assets
+        assets = cls.list_all_assets()
+        loaders: dict[str, Callable[[str], Asset]] = {
+            "tileset": cls.load_tileset,
+            "tilemap": cls.load_tilemap,
+            "blueprint": cls.load_blueprint,
+            "ai_script": cls.load_ai_script,
+            "dialog": cls.load_dialog
+        }
+        for asset_type, loader in loaders.items():
+            for asset in assets[asset_type]:
+                loader(asset)

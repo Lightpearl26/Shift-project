@@ -1,4 +1,4 @@
-#!venv/Scripts/python
+#!.venv/Scripts/python
 #-*- coding: utf-8 -*-
 
 """
@@ -20,6 +20,7 @@ from game_libs.managers.audio import AudioManager
 from game_libs.managers.scene import SceneManager
 from game_libs.managers.display import DisplayManager
 from game_libs.managers.options import OptionsManager
+from game_libs.assets_registry import AssetsRegistry
 
 from game_libs import logger
 
@@ -35,18 +36,16 @@ def main():
     # Initialize managers
     logger.info("======= Initialize Managers =======")
     DisplayManager.init()
+    AssetsRegistry.load_all_assets()
     AudioManager.init()
     SceneManager.init()
     OptionsManager.init()
-    
-    # set backend to cpu
+
     logger.info("======= Setup game =======")
-    DisplayManager.set_post_backend("cpu")
 
     # load the first scene
-    SceneManager.change_scene("Tests")
+    SceneManager.change_scene("MainMenu")
 
-    fps_font = pygame.font.SysFont("Consolas", 24)
     logger.info("======= Start Main Loop =======")
 
     # Main game loop
@@ -60,16 +59,6 @@ def main():
         if pygame.event.peek(pygame.QUIT):
             running = False
 
-        events: list = pygame.event.get(pygame.KEYDOWN)
-        for event in events:
-            if event.key == pygame.K_F11:
-                DisplayManager.toggle_fullscreen()
-            elif event.key == pygame.K_F12:
-                DisplayManager.save_screenshot()
-            elif event.key == pygame.K_F3:
-                global DEBUG_MODE
-                DEBUG_MODE = not DEBUG_MODE
-
         # update managers
         AudioManager.update()
         SceneManager.update(dt)
@@ -81,60 +70,6 @@ def main():
         surface = DisplayManager.get_surface()
         surface.fill((0, 0, 0))  # clear screen with black
         SceneManager.render(surface)
-
-        # Debug fps
-        if DEBUG_MODE:
-            # FPS
-            fps_text = fps_font.render(f"FPS: {DisplayManager.get_fps():.0f}", True, (255, 255, 0))
-            surface.blit(fps_text, (10, 10))
-            
-            # Options
-            lum_text = fps_font.render(
-                f"L:{OptionsManager.get_luminosity():.2f}",
-                True,
-                (0, 200, 255)
-            )
-            cont_text = fps_font.render(
-                f"C:{OptionsManager.get_contrast():.2f}",
-                True,
-                (0, 200, 255)
-            )
-            gam_text = fps_font.render(
-                f"G:{OptionsManager.get_gamma():.2f}",
-                True,
-                (0, 200, 255)
-            )
-            cb_text = fps_font.render(
-                f"CB:{OptionsManager.get_colorblind_mode()}",
-                True,
-                (0, 200, 255)
-            )
-            surface.blit(lum_text, (10, 50))
-            surface.blit(cont_text, (10, 70))
-            surface.blit(gam_text, (10, 90))
-            surface.blit(cb_text, (10, 110))
-            
-            # Current scene
-            scene = SceneManager.get_current_scene()
-            if scene:
-                scene_text = fps_font.render(
-                    f"Scene: {scene.name}",
-                    True,
-                    (255, 255, 0)
-                )
-                surface.blit(scene_text, (10, 150))
-                
-            # If scene is game_test, display player position
-            if scene and scene.name == "Tests":
-                player = getattr(scene, "player", None)
-                if player:
-                    pos_text = fps_font.render(
-                        f"Player Pos: ({player.pos.x:.0f}, {player.pos.y:.0f})",
-                        True,
-                        (150, 150, 150)
-                    )
-                    surface.blit(pos_text, (10, 190))
-            
 
         # update display
         DisplayManager.flip()

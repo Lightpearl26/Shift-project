@@ -317,7 +317,7 @@ class MapCanvas(Frame):
         
         # Create camera for this viewport
         camera = self.viewport_camera
-        TilemapRenderer.render(tm, viewport_surface, camera, camera)
+        TilemapRenderer.render(tm, viewport_surface, camera)
         
         # Blit the viewport directly to the destination
         surface.blit(viewport_surface, self.rect.topleft)
@@ -546,7 +546,7 @@ class LayerPicker(Frame):
                 width = int(width_entry.text or "40")
                 height = int(height_entry.text or "23")
                 tileset_obj = AssetsRegistry.load_tileset(tileset.get_text())
-                tilemap = TilemapData(name, width, height, tileset_obj, "", "", [[-1 for _ in range(width)] for _ in range(height)], [], [])
+                tilemap = TilemapData(name, width, height, tileset_obj, "", "", [[-1 for _ in range(width)] for _ in range(height)], [])
                 parallax = TilemapParallaxData(tm=tilemap, blueprint={"type": "tilemap", "name": tilemap.name})
                 self.logger.text = f"Create tilemap parallax with tilemap {name} ({width}x{height})"
             self.app.level.tilemap.parallax.append(parallax)
@@ -701,7 +701,7 @@ class MiniMap(Frame):
         full_surface = pygame.Surface((map_w, map_h), SRCALPHA)
         camera = Camera(Vector2(map_w // 2, map_h // 2), (map_w, map_h))
         TilemapRenderer.clear_cache()
-        TilemapRenderer.render(tm, full_surface, camera, camera)
+        TilemapRenderer.render(tm, full_surface, camera)
         
         # Scale the rendered tilemap
         scaled = pygame.transform.smoothscale(full_surface, (new_w, new_h))
@@ -1032,7 +1032,7 @@ class EntityCanvas(Frame):
         # Create camera for this viewport (pos is center, not top-left)
         center = self.scroll + Vector2(self.rect.width // 2, self.rect.height // 2)
         camera = Camera(center, (self.rect.width, self.rect.height))
-        TilemapRenderer.render(tm, viewport_surface, camera, camera)
+        TilemapRenderer.render(tm, viewport_surface, camera)
         
         # Blit the viewport directly to the destination
         self.surface.blit(viewport_surface, (0, 0))
