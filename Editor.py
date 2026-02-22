@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 from typing import Optional
-from json import dumps
+from json import dumps, load
 
 from tkinter.filedialog import asksaveasfilename, askopenfilename
 
@@ -848,6 +848,19 @@ class EntityCanvas(Frame):
         
     def get_tilemap(self):
         return self.app.level.tilemap
+
+    @staticmethod
+    def _entity_position(entity: dict) -> tuple[int, int]:
+        hitbox = entity.get("overrides", {}).get("Hitbox", {})
+        return int(hitbox.get("x", 0)), int(hitbox.get("y", 0))
+
+    def _set_entity_position(self, entity: dict, x: int, y: int) -> None:
+        overrides = entity.setdefault("overrides", {})
+        hitbox = overrides.setdefault("Hitbox", {})
+        hitbox["x"] = int(x)
+        hitbox["y"] = int(y)
+        hitbox.setdefault("width", self.tile_size)
+        hitbox.setdefault("height", self.tile_size)
     
     def reinit(self):
         """Reinitialize canvas with tilemap data."""
@@ -861,8 +874,7 @@ class EntityCanvas(Frame):
     def handle_event(self, event):
         if not self.displayed:
             return False
-        
-        tm = self.get_tilemap()
+
         level = self.app.level
         
         if self.focus and event.type == MOUSEBUTTONDOWN and event.button == 1:
@@ -883,9 +895,8 @@ class EntityCanvas(Frame):
                 world_x = int(mouse_pos.x - self.global_rect.left + self.scroll.x)
                 world_y = int(mouse_pos.y - self.global_rect.top + self.scroll.y)
                 
-                entity = tm.entities[self.selected_entity_idx]
-                ex = entity.get("x", 0)
-                ey = entity.get("y", 0)
+                entity = self.app.entities_data[self.selected_entity_idx]
+                ex, ey = self._entity_position(entity)
                 
                 if abs(ex - world_x) < self.tile_size and abs(ey - world_y) < self.tile_size:
                     self.dragging_entity_idx = self.selected_entity_idx
@@ -909,12 +920,17 @@ class EntityCanvas(Frame):
                 else:
                     # Place regular entity
                     entity_data = {
-                        "blueprint": blueprint,
-                        "x": world_x,
-                        "y": world_y,
-                        "overrides": {}
+                        "name": blueprint,
+                        "overrides": {
+                            "Hitbox": {
+                                "x": world_x,
+                                "y": world_y,
+                                "width": self.tile_size,
+                                "height": self.tile_size,
+                            }
+                        }
                     }
-                    tm.entities.append(entity_data)
+                    self.app.entities_data.append(entity_data)
                     self.logger.text = f"Placed {blueprint} at ({world_x}, {world_y})"
                 
                 if hasattr(self.app, 'entity_properties'):
@@ -932,8 +948,9 @@ class EntityCanvas(Frame):
                     self.app.entity_properties.refresh()
                 return True
             elif self.dragging_entity_idx >= 0:
-                entity = tm.entities[self.dragging_entity_idx]
-                self.logger.text = f"Moved {entity.get('blueprint')} to ({entity.get('x')}, {entity.get('y')})"
+                entity = self.app.entities_data[self.dragging_entity_idx]
+                ex, ey = self._entity_position(entity)
+                self.logger.text = f"Moved {entity.get('name')} to ({ex}, {ey})"
                 self.dragging_entity_idx = -1
                 if hasattr(self.app, 'entity_properties'):
                     self.app.entity_properties.refresh()
@@ -955,9 +972,8 @@ class EntityCanvas(Frame):
             world_x = int(mouse_pos.x - self.global_rect.left + self.scroll.x)
             world_y = int(mouse_pos.y - self.global_rect.top + self.scroll.y)
             
-            entity = tm.entities[self.dragging_entity_idx]
-            entity["x"] = world_x
-            entity["y"] = world_y
+            entity = self.app.entities_data[self.dragging_entity_idx]
+            self._set_entity_position(entity, world_x, world_y)
             return True
         
         if self.focus and event.type == MOUSEBUTTONDOWN and event.button == 3:
@@ -979,12 +995,11 @@ class EntityCanvas(Frame):
                     return True
             
             # Find entity at position (within 32 pixels)
-            for i, entity in enumerate(tm.entities):
-                ex = entity.get("x", 0)
-                ey = entity.get("y", 0)
+            for i, entity in enumerate(self.app.entities_data):
+                ex, ey = self._entity_position(entity)
                 if abs(ex - world_x) < self.tile_size and abs(ey - world_y) < self.tile_size:
                     self.selected_entity_idx = i
-                    self.logger.text = f"Selected entity: {entity.get('blueprint')} at ({ex}, {ey})"
+                    self.logger.text = f"Selected entity: {entity.get('name')} at ({ex}, {ey})"
                     if hasattr(self.app, 'entity_properties'):
                         self.app.entity_properties.refresh()
                     return True
@@ -1057,9 +1072,8 @@ class EntityCanvas(Frame):
                 self.surface.blit(text, (surf_x + 6, surf_y + 6))
         
         # Draw entities on top of tilemap
-        for i, entity in enumerate(tm.entities):
-            ex = entity.get("x", 0)
-            ey = entity.get("y", 0)
+        for i, entity in enumerate(self.app.entities_data):
+            ex, ey = self._entity_position(entity)
             
             # Convert world coords to surface coords
             surf_x = int(ex - self.scroll.x)
@@ -1072,7 +1086,7 @@ class EntityCanvas(Frame):
                 pygame.draw.circle(self.surface, color, (surf_x + self.tile_size // 2, surf_y + self.tile_size // 2), 8, 2)
                 
                 # Draw blueprint name
-                blueprint = entity.get("blueprint", "?")
+                blueprint = entity.get("name", "?")
                 text = self.app.theme.font.render(blueprint[:2], True, (200, 200, 200))
                 self.surface.blit(text, (surf_x + 4, surf_y + 4))
         
@@ -1100,12 +1114,11 @@ class EntityProperties(Frame):
         self.property_widgets.clear()
         
         canvas = self.app.entity_canvas if hasattr(self.app, 'entity_canvas') else None
-        if not canvas or canvas.selected_entity_idx < -1:
+        if not canvas or canvas.selected_entity_idx < -2:
             Label(self, (10, 10), "No entity selected")
             return
         
         level = self.app.level
-        tm = level.tilemap
         
         # Handle player
         if canvas.selected_entity_idx == -2:
@@ -1142,21 +1155,25 @@ class EntityProperties(Frame):
             Label(self, (10, 10), "No entity selected")
             return
         
-        entity = tm.entities[canvas.selected_entity_idx]
+        entity = self.app.entities_data[canvas.selected_entity_idx]
         self.selected_idx = canvas.selected_entity_idx
+
+        hitbox = entity.get("overrides", {}).get("Hitbox", {})
+        ex = int(hitbox.get("x", 0))
+        ey = int(hitbox.get("y", 0))
         
         Label(self, (10, 10), f"Entity #{self.selected_idx}")
-        Label(self, (10, 50), f"Blueprint: {entity.get('blueprint', '?')}")
-        Label(self, (10, 90), f"Position: ({entity.get('x', 0)}, {entity.get('y', 0)})")
+        Label(self, (10, 50), f"Blueprint: {entity.get('name', '?')}")
+        Label(self, (10, 90), f"Position: ({ex}, {ey})")
         
         # X position editor
         Label(self, (10, 130), "X:")
-        x_entry = TextEntry(self, Rect(40, 128, 50, 24), default_text=str(entity.get('x', 0)))
+        x_entry = TextEntry(self, Rect(40, 128, 50, 24), default_text=str(ex))
         self.property_widgets['x'] = x_entry
         
         # Y position editor
         Label(self, (10, 170), "Y:")
-        y_entry = TextEntry(self, Rect(40, 168, 50, 24), default_text=str(entity.get('y', 0)))
+        y_entry = TextEntry(self, Rect(40, 168, 50, 24), default_text=str(ey))
         self.property_widgets['y'] = y_entry
         
         # Delete button
@@ -1164,6 +1181,15 @@ class EntityProperties(Frame):
         
         # Update button
         Button(self, Rect(120, 210, 100, 30), "Update", self.update_entity)
+
+        ai_script = self._normalize_script_name(
+            entity.get("overrides", {}).get("AI", {}).get("script")
+        )
+        Label(self, (10, 250), f"AI script: {ai_script or 'None'}")
+
+        # AI script editor
+        Button(self, Rect(10, 280, 210, 30), "Script AI...", self.edit_ai_script)
+        Button(self, Rect(10, 320, 210, 30), "Retirer AI", self.remove_ai_script)
     
     def delete_player(self):
         """Delete the player."""
@@ -1179,9 +1205,8 @@ class EntityProperties(Frame):
         """Delete the selected entity."""
         canvas = self.app.entity_canvas if hasattr(self.app, 'entity_canvas') else None
         if canvas and canvas.selected_entity_idx >= 0:
-            tm = self.app.level.tilemap
-            entity = tm.entities.pop(canvas.selected_entity_idx)
-            self.logger.text = f"Deleted entity: {entity.get('blueprint')}"
+            entity = self.app.entities_data.pop(canvas.selected_entity_idx)
+            self.logger.text = f"Deleted entity: {entity.get('name')}"
             canvas.selected_entity_idx = -1
             self.refresh()
     
@@ -1213,17 +1238,158 @@ class EntityProperties(Frame):
         if not canvas or canvas.selected_entity_idx < 0:
             return
         
-        tm = self.app.level.tilemap
-        entity = tm.entities[canvas.selected_entity_idx]
+        entity = self.app.entities_data[canvas.selected_entity_idx]
+        overrides = entity.setdefault("overrides", {})
+        hitbox = overrides.setdefault("Hitbox", {})
         
         try:
             if 'x' in self.property_widgets:
-                entity['x'] = int(self.property_widgets['x'].text)
+                hitbox['x'] = int(self.property_widgets['x'].text)
             if 'y' in self.property_widgets:
-                entity['y'] = int(self.property_widgets['y'].text)
-            self.logger.text = f"Updated entity at ({entity['x']}, {entity['y']})"
+                hitbox['y'] = int(self.property_widgets['y'].text)
+            hitbox.setdefault("width", self.app.entity_canvas.tile_size)
+            hitbox.setdefault("height", self.app.entity_canvas.tile_size)
+            self.logger.text = f"Updated entity at ({hitbox['x']}, {hitbox['y']})"
         except ValueError:
             self.logger.text = "Error: Invalid position values"
+
+    @staticmethod
+    def _cast_ai_arg_value(value: str, arg_type: str):
+        """Cast popup input value to the declared AI arg type."""
+        if arg_type == "int":
+            return int(value)
+        if arg_type == "float":
+            return float(value)
+        if arg_type == "bool":
+            return str(value).strip().lower() in ("1", "true", "yes", "on")
+        return str(value)
+
+    @staticmethod
+    def _normalize_script_name(script_name: Optional[str]) -> Optional[str]:
+        """Normalize a script identifier to asset name (no extension/path)."""
+        if not script_name:
+            return None
+        base = os.path.basename(str(script_name)).strip()
+        if base.lower().endswith(".ai"):
+            base = os.path.splitext(base)[0]
+        return base or None
+
+    def edit_ai_script(self):
+        """Open a popup to select an AI script and edit its arguments."""
+        canvas = self.app.entity_canvas if hasattr(self.app, 'entity_canvas') else None
+        if not canvas or canvas.selected_entity_idx < 0:
+            self.logger.text = "Select an entity first"
+            return
+
+        entity = self.app.entities_data[canvas.selected_entity_idx]
+        overrides = entity.setdefault("overrides", {})
+        ai_override = overrides.setdefault("AI", {})
+
+        blueprint_ai = {}
+        blueprint_name = entity.get("name", "")
+        if blueprint_name in AssetsRegistry.list_assets("blueprint"):
+            blueprint = AssetsRegistry.load_blueprint(blueprint_name)
+            blueprint_ai = dict(blueprint.overrides.get("AI", {}))
+
+        current_script = self._normalize_script_name(
+            ai_override.get("script") or blueprint_ai.get("script")
+        )
+        current_args = dict(blueprint_ai.get("args", {}))
+        current_args.update(dict(ai_override.get("args", {})))
+
+        script_names = list(AssetsRegistry.list_assets("ai_script"))
+        if not script_names:
+            self.logger.text = "No AI scripts found"
+            return
+
+        popup = Popup(self.app, self.app.screen, Rect(0, 0, 560, 460), "Script AI")
+        popup.rect.center = self.app.screen.get_rect().center
+
+        args_frame = Frame(popup, Rect(10, 50, 540, 350))
+        Label(popup, (12, 14), "Script")
+        script_dropdown = DropdownList(popup, (80, 12), script_names)
+        if current_script in script_names:
+            script_dropdown.selected_index = script_names.index(current_script)
+        arg_entries: dict[str, tuple[TextEntry, str]] = {}
+
+        def build_arg_fields(script_name: str):
+            arg_entries.clear()
+            args_frame.children.clear()
+            try:
+                parsed = AssetsRegistry.load_ai_script(script_name)
+            except (FileNotFoundError, OSError, ValueError, KeyError, TypeError) as exc:
+                Label(args_frame, (8, 10), f"Error loading script: {exc}")
+                return
+
+            args_decl = parsed.get("args", {}) if isinstance(parsed, dict) else {}
+            if not args_decl:
+                Label(args_frame, (8, 10), "No arguments for this script")
+                return
+
+            y = 10
+            for arg_name, meta in args_decl.items():
+                arg_type = str(meta.get("type", "str"))
+                default_value = meta.get("default")
+                doc = str(meta.get("doc", "")).strip()
+
+                current_value = current_args.get(arg_name, default_value)
+                display_value = "" if current_value is None else str(current_value)
+
+                Label(args_frame, (8, y), f"{arg_name} ({arg_type})")
+                entry = TextEntry(args_frame, Rect(210, y - 2, 180, 24), default_text=display_value)
+                arg_entries[arg_name] = (entry, arg_type)
+                if doc:
+                    Label(args_frame, (400, y), doc)
+                y += 32
+
+        def reload_script_args():
+            build_arg_fields(script_dropdown.get_text())
+
+        def apply_ai_config():
+            script_name = script_dropdown.get_text()
+            new_args: dict[str, object] = {}
+            try:
+                for arg_name, (entry, arg_type) in arg_entries.items():
+                    raw = entry.text.strip()
+                    if raw == "":
+                        continue
+                    new_args[arg_name] = self._cast_ai_arg_value(raw, arg_type)
+            except ValueError as exc:
+                self.logger.text = f"Invalid AI argument value: {exc}"
+                return
+
+            ai_override["name"] = "AIPageLogic"
+            ai_override["script"] = script_name
+            ai_override["args"] = new_args
+            popup.title = "apply"
+            popup.close()
+
+        build_arg_fields(script_dropdown.get_text())
+
+        Button(popup, Rect(10, 415, 140, 30), "Charger args", reload_script_args)
+        Button(popup, Rect(360, 415, 90, 30), "Annuler", popup.close)
+        Button(popup, Rect(460, 415, 90, 30), "Appliquer", apply_ai_config)
+        popup.run()
+
+        if popup.title == "apply":
+            self.logger.text = f"AI script set: {ai_override.get('script')}"
+            self.refresh()
+
+    def remove_ai_script(self):
+        """Remove AI override from selected entity."""
+        canvas = self.app.entity_canvas if hasattr(self.app, 'entity_canvas') else None
+        if not canvas or canvas.selected_entity_idx < 0:
+            self.logger.text = "Select an entity first"
+            return
+
+        entity = self.app.entities_data[canvas.selected_entity_idx]
+        overrides = entity.setdefault("overrides", {})
+        if "AI" in overrides:
+            del overrides["AI"]
+            self.logger.text = "AI override removed"
+        else:
+            self.logger.text = "No AI override on this entity"
+        self.refresh()
     
     def render(self, surface: pygame.Surface) -> None:
         if not self.displayed:
@@ -1245,11 +1411,44 @@ class LevelEditor(UIApp):
         UIApp.__init__(self, size)
         self.running = True
         self.level = AssetsRegistry.load_level("empty", Engine())
+        self.entities_data: list[dict] = self._load_level_entities_file("empty")
         self.level.tilemap.name = "temp"
         # Ensure parallax list exists
         if self.level.tilemap.parallax is None:
             self.level.tilemap.parallax = []
         self._setup_ui(size)
+
+    def _normalize_entity_data(self, entity_data: dict) -> dict:
+        """Normalize entity dict to level format: {name, overrides:{Hitbox:{...}}}."""
+        name = entity_data.get("name") or entity_data.get("blueprint", "")
+        overrides = dict(entity_data.get("overrides", {}))
+        if "Hitbox" not in overrides:
+            overrides["Hitbox"] = {
+                "x": int(entity_data.get("x", 0)),
+                "y": int(entity_data.get("y", 0)),
+            }
+        hitbox = overrides.get("Hitbox", {})
+        hitbox.setdefault("x", 0)
+        hitbox.setdefault("y", 0)
+        hitbox.setdefault("width", self.level.tilemap.tileset.tile_size)
+        hitbox.setdefault("height", self.level.tilemap.tileset.tile_size)
+        overrides["Hitbox"] = hitbox
+        return {
+            "name": name,
+            "overrides": overrides,
+        }
+
+    def _load_level_entities_file(self, level_name: str) -> list[dict]:
+        """Load raw entities list from level file and normalize it for editor usage."""
+        filepath = os.path.join(config.LEVELS_FOLDER, f"{level_name}.json")
+        if not os.path.exists(filepath):
+            return []
+        with open(filepath, "r", encoding="utf-8") as f:
+            data = load(f)
+        entities = data.get("entities", [])
+        if not isinstance(entities, list):
+            return []
+        return [self._normalize_entity_data(e) for e in entities if isinstance(e, dict)]
 
     def _setup_ui(self, size):
         main_layer = self.add_layer()
@@ -1378,7 +1577,8 @@ class LevelEditor(UIApp):
             self.level.tilemap.width = tilemap_width
             self.level.tilemap.height = tilemap_height
             self.level.tilemap.grid = [[-1 for _ in range(tilemap_width)] for _ in range(tilemap_height)]
-            self.level.tilemap.entities = []
+            self.entities_data = []
+            self.level.entities = []
             self.level.tilemap.parallax = []
             
             self.layerpicker.refresh()
@@ -1413,14 +1613,6 @@ class LevelEditor(UIApp):
 
     def save_tilemap(self, tilemap: TilemapData):
         """Save tilemap data."""
-        # Format entities as JSON
-        entities_json = "["
-        for i, entity in enumerate(tilemap.entities):
-            entities_json += f'\n\t\t{{"blueprint": "{entity.get("blueprint", "")}", "x": {entity.get("x", 0)}, "y": {entity.get("y", 0)}, "overrides": {{}}}}'
-            if i < len(tilemap.entities) - 1:
-                entities_json += ","
-        entities_json += "\n\t]" if tilemap.entities else "[]"
-        
         # Format parallax layers as JSON
         parallax_json = "["
         for i, parallax in enumerate(tilemap.parallax):
@@ -1447,7 +1639,6 @@ class LevelEditor(UIApp):
             f'\t"bgs": "{tilemap.bgs}",\n' +
             f'\t"tileset": "{tilemap.tileset.name}",\n' +
             f'\t"tiles": {format_grid(tilemap.grid, 1)},\n' +
-            f'\t"entities": {entities_json},\n' +
             f'\t"parallax": {parallax_json}\n' +
             "}"
         ).replace("'", "\"")
@@ -1477,7 +1668,8 @@ class LevelEditor(UIApp):
                 "camera": {
                     "x": level.camera.centerx if level.camera else 0,
                     "y": level.camera.centery if level.camera else 0
-                }
+                },
+                "entities": [self._normalize_entity_data(entity) for entity in self.entities_data]
             }, indent=4))
         
         self.label_info.text = "Level saved"
@@ -1550,6 +1742,7 @@ class LevelEditor(UIApp):
             AssetsRegistry.clear_cache()
             name = os.path.splitext(os.path.basename(filepath))[0]
             self.level = AssetsRegistry.load_level(name, Engine())
+            self.entities_data = self._load_level_entities_file(name)
             # Ensure parallax list exists
             if self.level.tilemap.parallax is None:
                 self.level.tilemap.parallax = []
