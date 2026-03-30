@@ -105,7 +105,7 @@ class PauseMenuScene(BaseScene):
             self.cursor = (self.cursor - 1) % len(self.options)
         elif keys.get("DOWN") == KeyState.PRESSED:
             self.cursor = (self.cursor + 1) % len(self.options)
-        elif keys.get("JUMP") == KeyState.PRESSED:
+        elif keys.get("ACTION") == KeyState.PRESSED:
             option = self.options[self.cursor]
             if option == 'Reprendre' :
                 self.scene_manager.change_scene('Tests',

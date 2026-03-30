@@ -51,7 +51,7 @@ class OptionScene(BaseScene):
         self._sub_menu_options = {
             "Audio": ["Master", "BGM", "BGS", "ME", "SE"],
             "Video": ["Fullscreen", "Rendering process", "Framerate", "Luminosity", "Contrast", "Gamma", "Colorblind Mode"],
-            "Controls": ["UP", "DOWN", "LEFT", "RIGHT", "JUMP", "PAUSE", "SPRINT"]
+            "Controls": ["UP", "DOWN", "LEFT", "RIGHT", "JUMP", "PAUSE", "ACTION", "GRAB", "SPELL", "FUSION"]
         }
         self._in_submenu: bool = False
         self._editing: bool = False
@@ -154,7 +154,7 @@ class OptionScene(BaseScene):
                 self._control_key_slot %= len(OptionsManager.get_key_bindings()[self._current_option])
                 return
             return
-        if events.get("JUMP") == KeyState.PRESSED:
+        if events.get("ACTION") == KeyState.PRESSED:
             # execute action in cursor pos
             if not self._in_submenu:
                 self._in_submenu = True
@@ -273,13 +273,13 @@ class OptionScene(BaseScene):
             if self._in_submenu:
                 if self.cursor_pos[1] == i:
                     if self._editing:
-                        surface.blit(self._main_menu_font.render(option, True, (255, 155, 55)), (100, 100 + height // 5 + i*100))
+                        surface.blit(self._main_menu_font.render(option, True, (255, 155, 55)), (100, 100 + height // 5 + i*70))
                     else:
-                        surface.blit(self._main_menu_font.render(option, True, (155, 255, 55)), (100, 100 + height // 5 + i*100))
+                        surface.blit(self._main_menu_font.render(option, True, (155, 255, 55)), (100, 100 + height // 5 + i*70))
                 else:
-                    surface.blit(self._main_menu_font.render(option, True, (255, 255, 255)), (100, 100 + height // 5 + i*100))
+                    surface.blit(self._main_menu_font.render(option, True, (255, 255, 255)), (100, 100 + height // 5 + i*70))
             else:
-                surface.blit(self._main_menu_font.render(option, True, (255, 255, 255)), (100, 100 + height // 5 + i*100))
+                surface.blit(self._main_menu_font.render(option, True, (255, 255, 255)), (100, 100 + height // 5 + i*70))
 
         if self._main_menu_options[self.cursor_pos[0]] == "Audio":
             self.render_audio_submenu(surface)
@@ -303,38 +303,38 @@ class OptionScene(BaseScene):
         
         # draw bgm volume components
         width, height = surface.get_size()
-        pygame.draw.rect(surface, (255, 255, 255), (width // 3, 223 + height // 5, width // 2, 2))
+        pygame.draw.rect(surface, (255, 255, 255), (width // 3, 193 + height // 5, width // 2, 2))
         percentage = OptionsManager.bgm_volume()
-        pygame.draw.rect(surface, (155, 255, 55), (-10 + width // 3 + percentage * width // 2, 200 + height // 5, 20, 48))
+        pygame.draw.rect(surface, (155, 255, 55), (-10 + width // 3 + percentage * width // 2, 170 + height // 5, 20, 48))
         value = self._sub_menu_font.render(f"{percentage*100}", True, (255, 255, 255))
-        value_rect = value.get_rect(midright=(width - 100, 224 + height // 5))
+        value_rect = value.get_rect(midright=(width - 100, 194 + height // 5))
         surface.blit(value, value_rect)
         
         # draw bgs volume components
         width, height = surface.get_size()
-        pygame.draw.rect(surface, (255, 255, 255), (width // 3, 323 + height // 5, width // 2, 2))
+        pygame.draw.rect(surface, (255, 255, 255), (width // 3, 263 + height // 5, width // 2, 2))
         percentage = OptionsManager.bgs_volume()
-        pygame.draw.rect(surface, (155, 255, 55), (-10 + width // 3 + percentage * width // 2, 300 + height // 5, 20, 48))
+        pygame.draw.rect(surface, (155, 255, 55), (-10 + width // 3 + percentage * width // 2, 240 + height // 5, 20, 48))
         value = self._sub_menu_font.render(f"{percentage*100}", True, (255, 255, 255))
-        value_rect = value.get_rect(midright=(width - 100, 324 + height // 5))
+        value_rect = value.get_rect(midright=(width - 100, 264 + height // 5))
         surface.blit(value, value_rect)
         
         # draw me volume components
         width, height = surface.get_size()
-        pygame.draw.rect(surface, (255, 255, 255), (width // 3, 423 + height // 5, width // 2, 2))
+        pygame.draw.rect(surface, (255, 255, 255), (width // 3, 333 + height // 5, width // 2, 2))
         percentage = OptionsManager.me_volume()
-        pygame.draw.rect(surface, (155, 255, 55), (-10 + width // 3 + percentage * width // 2, 400 + height // 5, 20, 48))
+        pygame.draw.rect(surface, (155, 255, 55), (-10 + width // 3 + percentage * width // 2, 310 + height // 5, 20, 48))
         value = self._sub_menu_font.render(f"{percentage*100}", True, (255, 255, 255))
-        value_rect = value.get_rect(midright=(width - 100, 424 + height // 5))
+        value_rect = value.get_rect(midright=(width - 100, 334 + height // 5))
         surface.blit(value, value_rect)
         
         # draw se volume components
         width, height = surface.get_size()
-        pygame.draw.rect(surface, (255, 255, 255), (width // 3, 523 + height // 5, width // 2, 2))
+        pygame.draw.rect(surface, (255, 255, 255), (width // 3, 403 + height // 5, width // 2, 2))
         percentage = OptionsManager.se_volume()
-        pygame.draw.rect(surface, (155, 255, 55), (-10 + width // 3 + percentage * width // 2, 500 + height // 5, 20, 48))
+        pygame.draw.rect(surface, (155, 255, 55), (-10 + width // 3 + percentage * width // 2, 380 + height // 5, 20, 48))
         value = self._sub_menu_font.render(f"{percentage*100}", True, (255, 255, 255))
-        value_rect = value.get_rect(midright=(width - 100, 524 + height // 5))
+        value_rect = value.get_rect(midright=(width - 100, 404 + height // 5))
         surface.blit(value, value_rect)
 
     def render_video_submenu(self, surface: Surface) -> None:
@@ -354,49 +354,49 @@ class OptionScene(BaseScene):
         
         # render backend selector
         text = self._sub_menu_font.render(OptionsManager.get_backend(), True, (0, 0, 0))
-        pygame.draw.rect(surface, (255, 255, 255), (width-292, 200+height//5, 192, 48))
-        text_rect = text.get_rect(center=(width-196, 224+height//5))
+        pygame.draw.rect(surface, (255, 255, 255), (width-292, 170+height//5, 192, 48))
+        text_rect = text.get_rect(center=(width-196, 194+height//5))
         surface.blit(text, text_rect)
-        pygame.draw.rect(surface, (155, 255, 55), (width-292, 200+height//5, 192, 48), width=2)
+        pygame.draw.rect(surface, (155, 255, 55), (width-292, 170+height//5, 192, 48), width=2)
         
         # render framerate selector
         text = "unlimited" if OptionsManager.get_fps_cap() == 0 else str(OptionsManager.get_fps_cap())
         text_surf = self._sub_menu_font.render(text, True, (0, 0, 0))
-        pygame.draw.rect(surface, (255, 255, 255), (width-292, 300+height//5, 192, 48))
-        text_rect = text_surf.get_rect(center=(width-196, 324+height//5))
+        pygame.draw.rect(surface, (255, 255, 255), (width-292, 240+height//5, 192, 48))
+        text_rect = text_surf.get_rect(center=(width-196, 264+height//5))
         surface.blit(text_surf, text_rect)
-        pygame.draw.rect(surface, (155, 255, 55), (width-292, 300+height//5, 192, 48), width=2)
+        pygame.draw.rect(surface, (155, 255, 55), (width-292, 240+height//5, 192, 48), width=2)
         
         # render luminosity stuff
-        pygame.draw.rect(surface, (255, 255, 255), (width // 3, 423 + height // 5, width // 2, 2))
+        pygame.draw.rect(surface, (255, 255, 255), (width // 3, 333 + height // 5, width // 2, 2))
         percentage = OptionsManager.get_luminosity()
-        pygame.draw.rect(surface, (155, 255, 55), (-10 + width // 3 + percentage * width // 2, 400 + height // 5, 20, 48))
+        pygame.draw.rect(surface, (155, 255, 55), (-10 + width // 3 + percentage * width // 2, 310 + height // 5, 20, 48))
         value = self._sub_menu_font.render(f"{OptionsManager.get_luminosity()}", True, (255, 255, 255))
-        value_rect = value.get_rect(midright=(width - 100, 424 + height // 5))
+        value_rect = value.get_rect(midright=(width - 100, 334 + height // 5))
         surface.blit(value, value_rect)
         
         # render contrast stuff
-        pygame.draw.rect(surface, (255, 255, 255), (width // 3, 523 + height // 5, width // 2, 2))
+        pygame.draw.rect(surface, (255, 255, 255), (width // 3, 403 + height // 5, width // 2, 2))
         percentage = OptionsManager.get_contrast()
-        pygame.draw.rect(surface, (155, 255, 55), (-10 + width // 3 + percentage * width // 2, 500 + height // 5, 20, 48))
+        pygame.draw.rect(surface, (155, 255, 55), (-10 + width // 3 + percentage * width // 2, 380 + height // 5, 20, 48))
         value = self._sub_menu_font.render(f"{OptionsManager.get_contrast()}", True, (255, 255, 255))
-        value_rect = value.get_rect(midright=(width - 100, 524 + height // 5))
+        value_rect = value.get_rect(midright=(width - 100, 404 + height // 5))
         surface.blit(value, value_rect)
         
         # render gamma stuff
-        pygame.draw.rect(surface, (255, 255, 255), (width // 3, 623 + height // 5, width // 2, 2))
+        pygame.draw.rect(surface, (255, 255, 255), (width // 3, 473 + height // 5, width // 2, 2))
         percentage = (OptionsManager.get_gamma() - 0.1) / 2.9
-        pygame.draw.rect(surface, (155, 255, 55), (-10 + width // 3 + percentage * width // 2, 600 + height // 5, 20, 48))
+        pygame.draw.rect(surface, (155, 255, 55), (-10 + width // 3 + percentage * width // 2, 450 + height // 5, 20, 48))
         value = self._sub_menu_font.render(f"{OptionsManager.get_gamma()}", True, (255, 255, 255))
-        value_rect = value.get_rect(midright=(width - 100, 624 + height // 5))
+        value_rect = value.get_rect(midright=(width - 100, 474 + height // 5))
         surface.blit(value, value_rect)
         
         # render colorblind selector
         text = self._sub_menu_font.render(OptionsManager.get_colorblind_mode(), True, (0, 0, 0))
-        pygame.draw.rect(surface, (255, 255, 255), (width-292, 700+height//5, 192, 48))
-        text_rect = text.get_rect(center=(width-196, 724+height//5))
+        pygame.draw.rect(surface, (255, 255, 255), (width-292, 540+height//5, 192, 48))
+        text_rect = text.get_rect(center=(width-196, 564+height//5))
         surface.blit(text, text_rect)
-        pygame.draw.rect(surface, (155, 255, 55), (width-292, 700+height//5, 192, 48), width=2)
+        pygame.draw.rect(surface, (155, 255, 55), (width-292, 540+height//5, 192, 48), width=2)
 
     def render_controls_submenu(self, surface: Surface) -> None:
         """
@@ -405,16 +405,16 @@ class OptionScene(BaseScene):
         width, height = surface.get_size()
         for i, action in enumerate(self._sub_menu_options["Controls"]):
             for k, key in enumerate(OptionsManager.get_action_keys(action)):
-                pygame.draw.rect(surface, (255, 255, 255), (width // 3 + k*250, 100 + i*100 + height // 5, 192, 48))
+                pygame.draw.rect(surface, (255, 255, 255), (width // 3 + k*250, 100 + i*70 + height // 5, 192, 48))
                 if k == self._control_key_slot and action == self._current_option:
                     if self._waiting_for_key:
                         text = self._sub_menu_font.render(">   <", True, (0, 0, 0))
                     else:
                         text = self._sub_menu_font.render(pygame.key.name(key), True, (0, 0, 0))
-                    pygame.draw.rect(surface, (155, 255, 55), (width // 3 + k*250, 100 + i*100 + height // 5, 192, 48), width=2)
+                    pygame.draw.rect(surface, (155, 255, 55), (width // 3 + k*250, 100 + i*70 + height // 5, 192, 48), width=2)
                 else:
                     text = self._sub_menu_font.render(pygame.key.name(key), True, (0, 0, 0))
-                    pygame.draw.rect(surface, (55, 55, 55), (width // 3 + k*250, 100 + i*100 + height // 5, 192, 48), width=2)
-                text_rect = text.get_rect(center=(width//3 + k*250 + 96, 124+i*100+height//5))
+                    pygame.draw.rect(surface, (55, 55, 55), (width // 3 + k*250, 100 + i*70 + height // 5, 192, 48), width=2)
+                text_rect = text.get_rect(center=(width//3 + k*250 + 96, 124+i*70+height//5))
                 surface.blit(text, text_rect)
                         

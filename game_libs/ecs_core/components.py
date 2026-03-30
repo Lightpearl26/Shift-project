@@ -13,7 +13,7 @@ ________________________________________________________________________________
 
 # importing external modules
 from __future__ import annotations
-from typing import Callable
+from typing import Any, Optional
 from enum import IntFlag, auto
 from dataclasses import dataclass
 from pygame import Rect, Vector2
@@ -23,6 +23,7 @@ from .. import config
 
 # import ai structures
 from .ai import components as ai
+from .actions import ENTITY_ACTIONS
 
 
 # ----- Base class ----- #
@@ -547,9 +548,21 @@ class MapCollision(Component):
         self.bottom = False
 
 
+# ----- EntityAction Component ----- #
 @dataclass
-class CollisionAction(Component):
+class EntityAction(Component):
     """
-    Action called by Entity when on collision
+    Composant d'action d'entité, stocke le nom de l'action et ses paramètres
     """
-    action: Callable
+    action_name: str
+    params: Optional[dict[str, Any]] = None
+
+    def __call__(self, eid, engine, level, dt):
+        action_func = ENTITY_ACTIONS.get(self.action_name, ENTITY_ACTIONS["idle"])
+        return action_func(eid, engine, level, dt, **(self.params or {}))
+
+    @classmethod
+    def from_dict(cls, data: dict) -> EntityAction:
+        action_name = data.get("action_name", "idle")
+        params = data.get("params", None)
+        return cls(action_name, params)

@@ -20,9 +20,10 @@ from pygame import Vector2, Rect
 
 # import config
 from .. import config
+from .. import logger
 
 # import Intflags from components
-from .components import EntityState, EntityProperty
+from .components import EntityProperty
 
 # import header
 from ..header import ComponentTypes as C
@@ -46,7 +47,9 @@ if TYPE_CHECKING:
         MapCollision,
         WallSticking,
         CameraFollow,
-        Controlled
+        Controlled,
+        EntityCollision,
+        EntityAction
     )
 
 
@@ -106,19 +109,14 @@ def player_control_system(engine: Engine, level: Level, dt: float) -> None:
         if state.has_flag("CAN_MOVE"):
             if keys.get("RIGHT") == KeyState.HELD:
                 xdir.value = 1.0
-                running = keys.get("SPRINT") == KeyState.HELD
-                state.add_flag("RUNNING" if running else "WALKING")
-                state.remove_flag("WALKING" if running else "RUNNING")
+                state.add_flag("RUNNING")
 
             elif keys.get("LEFT") == KeyState.HELD:
                 xdir.value = -1.0
-                running = keys.get("SPRINT") == KeyState.HELD
-                state.add_flag("RUNNING" if running else "WALKING")
-                state.remove_flag("WALKING" if running else "RUNNING")
+                state.add_flag("RUNNING")
 
             else:
                 state.remove_flag("RUNNING")
-                state.remove_flag("WALKING")
 
 
 # ----- DragSystem ----- #
@@ -261,7 +259,7 @@ def map_collision_system(engine: Engine, level: Level, dt: float) -> None:
             dx = d.x
             if dx != 0:
                 step_x = 1 if dx > 0 else -1
-                for i in range(int(abs(dx))):
+                for _ in range(int(abs(dx))):
                     temp_rect.centerx += step_x
                     if level.tilemap.colliderect(temp_rect):
                         temp_rect.centerx -= step_x
@@ -270,7 +268,7 @@ def map_collision_system(engine: Engine, level: Level, dt: float) -> None:
             dy = d.y
             if dy != 0:
                 step_y = 1 if dy > 0 else -1
-                for i in range(int(abs(dy))):
+                for _ in range(int(abs(dy))):
                     temp_rect.centery += step_y
                     if level.tilemap.colliderect(temp_rect):
                         temp_rect.centery -= step_y
@@ -332,6 +330,102 @@ def map_collision_system(engine: Engine, level: Level, dt: float) -> None:
 
         if col.top:
             vel.y = 60.0
+
+
+# ---- EntityCollisionSystem ----- #
+def entity_collision_system(engine: Engine, level: Level, dt: float) -> None:
+    """
+    Resolve entity collisions of the entity
+    """
+    entity_ids = list(engine.get_entities_with(C.ENTITYCOLLISION))
+    logger.info(f"[entity_collision_system] Début, entités à tester: {entity_ids}")
+    for eid in entity_ids:
+        props: Properties = engine.get_component(eid, C.PROPERTIES)
+        if props.has_all_flags(EntityProperty.PHASABLE):
+            continue
+        hitbox: Hitbox = engine.get_component(eid, C.HITBOX)
+        next_pos: NextPosition = engine.get_component(eid, C.NEXTPOSITION)
+        vel: Velocity = engine.get_component(eid, C.VELOCITY)
+        col: EntityCollision = engine.get_component(eid, C.ENTITYCOLLISION)
+
+        # We reset previous collisions
+        col.collided_entities.clear()
+        col.bottom = False
+        col.top = False
+        col.left = False
+        col.right = False
+
+        test_rect = hitbox.rect.copy()
+        test_rect.center = next_pos.value
+
+        for other_eid in engine.get_entities_with(C.HITBOX):
+            if other_eid == eid:
+                continue
+            other_props: Properties = engine.get_component(other_eid, C.PROPERTIES)
+            if other_props.has_all_flags(EntityProperty.PHASABLE):
+                continue
+            other_hitbox: Hitbox = engine.get_component(other_eid, C.HITBOX)
+            if test_rect.colliderect(other_hitbox.rect.inflate(2, 2)):
+                logger.debug(f"[entity_collision_system] Collision détectée entre entité {eid} et entité {other_eid}")
+                # Correction stricte AABB pour chaque collision
+                dx = (other_hitbox.rect.centerx - test_rect.centerx)
+                dy = (other_hitbox.rect.centery - test_rect.centery)
+                overlap_x = (other_hitbox.rect.width + test_rect.width) // 2 - abs(dx)
+                overlap_y = (other_hitbox.rect.height + test_rect.height) // 2 - abs(dy)
+                if overlap_x > 0 and overlap_y > 0:
+                    if overlap_x < overlap_y:
+                        # Correction horizontale
+                        if dx > 0:
+                            test_rect.centerx -= overlap_x
+                        else:
+                            test_rect.centerx += overlap_x
+                        vel.x = 0
+                    else:
+                        # Correction verticale
+                        if dy > 0:
+                            test_rect.centery -= overlap_y
+                        else:
+                            test_rect.centery += overlap_y
+                        vel.y = 0
+                    # Met à jour la position corrigée
+                    next_pos.value = Vector2(test_rect.center)
+                # Enregistre la collision à partir de la position corrigée (next_pos)
+                entity_rect = hitbox.rect.copy()
+                entity_rect.center = next_pos.value
+                bottom = entity_rect.bottom <= other_hitbox.rect.top
+                top = entity_rect.top >= other_hitbox.rect.bottom
+                left = entity_rect.left >= other_hitbox.rect.right
+                right = entity_rect.right <= other_hitbox.rect.left
+                col.collided_entities.append(
+                    (
+                        other_eid,
+                        (left, right, top, bottom)
+                    )
+                )
+                col.bottom = col.bottom or bottom
+                col.top = col.top or top
+                col.left = col.left or left
+                col.right = col.right or right
+
+        # Mise à jour des états après toutes les collisions
+        state: State = engine.get_component(eid, C.STATE)
+        if col.bottom:
+            state.add_flag("ON_GROUND")
+
+
+# ----- EntityActionSystem ----- #
+def entity_action_system(engine: Engine, level: Level, dt: float) -> None:
+    """
+    Handle entities actions on collision with other entities
+    """
+    entity_ids = list(engine.get_entities_with(C.ENTITYCOLLISION, C.ENTITYACTION))
+    logger.info(f"[entity_action_system] Entités à tester: {entity_ids}")
+    for eid in entity_ids:
+        col: EntityCollision = engine.get_component(eid, C.ENTITYCOLLISION)
+        action: EntityAction = engine.get_component(eid, C.ENTITYACTION)
+        logger.info(f"[entity_action_system] eid={eid} collided_entities={col.collided_entities}")
+        action(eid, engine, level, dt)
+
 
 
 # ----- UpdateHitboxSystem ----- #

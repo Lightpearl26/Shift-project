@@ -92,7 +92,10 @@ class OptionsManager:
             "RIGHT": list(config.KEYS_RIGHT),
             "JUMP": list(config.KEYS_JUMP),
             "PAUSE": list(config.KEYS_PAUSE),
-            "SPRINT": list(config.KEYS_SPRINT)
+            "ACTION": list(config.KEYS_ACTION),
+            "GRAB": list(config.KEYS_GRAB),
+            "SPELL": list(config.KEYS_SPELL),
+            "FUSION": list(config.KEYS_FUSION)
         }
     }
 

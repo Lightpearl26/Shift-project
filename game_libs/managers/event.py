@@ -64,9 +64,12 @@ class KeyMapping:
         self.DOWN: set[int] = config.KEYS_DOWN
         self.LEFT: set[int] = config.KEYS_LEFT
         self.RIGHT: set[int] = config.KEYS_RIGHT
+        self.ACTION: set[int] = config.KEYS_ACTION
         self.JUMP: set[int] = config.KEYS_JUMP
-        self.SPRINT: set[int] = config.KEYS_SPRINT
+        self.GRAB: set[int] = config.KEYS_GRAB
         self.PAUSE: set[int] = config.KEYS_PAUSE
+        self.SPELL: set[int] = config.KEYS_SPELL
+        self.FUSION: set[int] = config.KEYS_FUSION
 
         # Track which keys were down last frame
         self._last_key_state: set[int] = set()
@@ -87,7 +90,10 @@ class KeyMapping:
             "LEFT": KeyState.RELEASED,
             "RIGHT": KeyState.RELEASED,
             "JUMP": KeyState.RELEASED,
-            "SPRINT": KeyState.RELEASED,
+            "ACTION": KeyState.RELEASED,
+            "GRAB": KeyState.RELEASED,
+            "SPELL": KeyState.RELEASED,
+            "FUSION": KeyState.RELEASED,
             "PAUSE": KeyState.RELEASED,
         }
 
@@ -100,7 +106,10 @@ class KeyMapping:
             "LEFT": self.LEFT,
             "RIGHT": self.RIGHT,
             "JUMP": self.JUMP,
-            "SPRINT": self.SPRINT,
+            "ACTION": self.ACTION,
+            "GRAB": self.GRAB,
+            "SPELL": self.SPELL,
+            "FUSION": self.FUSION,
             "PAUSE": self.PAUSE,
         }.items():
             for scancode in mapping:
@@ -156,8 +165,11 @@ class GamepadMapping:
 
     def __init__(self) -> None:
         # Default button indices (common layout; can be remapped via from_dict)
+        self.ACTION: set[int] = {0}  # A / Cross
         self.JUMP: set[int] = {0}  # A / Cross
-        self.SPRINT: set[int] = {10}  # LB / L1
+        self.GRAB: set[int] = {1}  # B / Circle
+        self.SPELL: set[int] = {2}  # X / Square
+        self.FUSION: set[int] = {3}  # Y / Triangle
         self.PAUSE: set[int] = {5, 1}   # Start / Cross
 
         # Direction config: D-Pad buttons (ZEROPLUS Pro5: UP=11, DOWN=12, LEFT=13, RIGHT=14)
@@ -185,7 +197,10 @@ class GamepadMapping:
             "LEFT": False,
             "RIGHT": False,
             "JUMP": False,
-            "SPRINT": False,
+            "ACTION": False,
+            "GRAB": False,
+            "SPELL": False,
+            "FUSION": False,
             "PAUSE": False,
         }
 
@@ -210,7 +225,10 @@ class GamepadMapping:
     def _read_buttons_down(self) -> dict[str, bool]:
         down: dict[str, bool] = {
             "JUMP": False,
-            "SPRINT": False,
+            "ACTION": False,
+            "GRAB": False,
+            "SPELL": False,
+            "FUSION": False,
             "PAUSE": False,
         }
         if not self._joystick:
@@ -224,9 +242,21 @@ class GamepadMapping:
                 if self._joystick.get_button(btn):
                     down["JUMP"] = True
                     break
-            for btn in self.SPRINT:
+            for btn in self.ACTION:
                 if self._joystick.get_button(btn):
-                    down["SPRINT"] = True
+                    down["ACTION"] = True
+                    break
+            for btn in self.GRAB:
+                if self._joystick.get_button(btn):
+                    down["GRAB"] = True
+                    break
+            for btn in self.SPELL:
+                if self._joystick.get_button(btn):
+                    down["SPELL"] = True
+                    break
+            for btn in self.FUSION:
+                if self._joystick.get_button(btn):
+                    down["FUSION"] = True
                     break
         except Exception as exc:
             logger.error(f"[GamepadMapping] Button read error: {exc}")

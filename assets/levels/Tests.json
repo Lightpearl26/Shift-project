@@ -8,15 +8,17 @@
         "gravity_system",
         "jump_system",
         "movement_system",
+        "entity_action_system",
         "move_prediction_system",
         "map_collision_system",
+        "entity_collision_system",
         "sync_hitbox_system",
         "camera_system"
     ],
     "player": {
         "Hitbox": {
-            "x": 76,
-            "y": 287
+            "x": 45,
+            "y": 275
         }
     },
     "camera": {
@@ -45,6 +47,12 @@
             }
         },
         {
+            "name": "pushable_block",
+            "overrides": {
+                "Hitbox": {"x": 120, "y": 275}
+            }
+        },
+        {
             "name": "TestAI",
             "overrides": {
                 "Hitbox": {
@@ -70,8 +78,8 @@
             "name": "TestAI",
             "overrides": {
                 "Hitbox": {
-                    "x": 830,
-                    "y": 529,
+                    "x": 1120,
+                    "y": 625,
                     "width": 48,
                     "height": 48
                 },

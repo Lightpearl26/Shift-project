@@ -84,7 +84,7 @@ class WelcomeScene(BaseScene):
         """
         keys = self.event_manager.get_keys()
 
-        if keys.get("JUMP") == KeyState.PRESSED:
+        if keys.get("ACTION") == KeyState.PRESSED:
             # Change scene to the main menu with fade transitions
             AudioManager.play_se("cursor_select")
             self.scene_manager.change_scene(
@@ -102,7 +102,7 @@ class WelcomeScene(BaseScene):
 
     def render(self, surface: Surface):
         """
-        Render Sscene on given surface.
+        Render Scene on given surface.
         """
         # Dessiner tout sur la surface
         surface.fill((50, 0, 70))

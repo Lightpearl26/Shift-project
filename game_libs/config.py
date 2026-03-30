@@ -27,12 +27,15 @@ from pygame import (
     K_LSHIFT,
     K_RSHIFT,
     K_ESCAPE,
-    K_p
+    K_p,
+    K_a,
+    K_e,
+    K_f
 )
 
 # ----- System constants ----- #
 LOG: bool = True
-LOG_DEBUG: bool = False
+LOG_DEBUG: bool = True
 TPS_MAX: int = 20 # max ticks per second
 UDP_LISTENING_PORT: int = 2802
 SERVER_LOG_FOLDER: str = join("cache", "server", "logs")
@@ -101,6 +104,8 @@ SYSTEM_PRIORITY: list[str] = [
     "movement_system",
     "move_prediction_system",
     "map_collision_system",
+    "entity_collision_system",
+    "entity_action_system",
     "sync_hitbox_system",
     "camera_system"
 ]
@@ -111,5 +116,8 @@ KEYS_DOWN: set[int] = {K_s, K_DOWN}
 KEYS_LEFT: set[int] = {K_q, K_LEFT}
 KEYS_RIGHT: set[int] = {K_d, K_RIGHT}
 KEYS_JUMP: set[int] = {K_SPACE} | KEYS_UP
-KEYS_SPRINT: set[int] = {K_LSHIFT, K_RSHIFT}
+KEYS_FUSION: set[int] = {K_LSHIFT, K_RSHIFT}
+KEYS_ACTION: set[int] = {K_e}
+KEYS_GRAB: set[int] = {K_a}
+KEYS_SPELL: set[int] = {K_f}
 KEYS_PAUSE: set[int] = {K_ESCAPE, K_p}

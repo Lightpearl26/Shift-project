@@ -19,6 +19,7 @@ class ComponentTypes(str, Enum):
     COLLISIONACTION = "CollisionAction"
     CONTROLLED = "Controlled"
     ENTITYCOLLISION = "EntityCollision"
+    ENTITYACTION = "EntityAction"
     HITBOX = "Hitbox"
     JUMP = "Jump"
     MAPCOLLISION = "MapCollision"

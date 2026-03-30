@@ -1,0 +1,22 @@
+{
+    "components": [
+        "Hitbox",
+        "Velocity",
+        "NextPosition",
+        "State",
+        "Properties",
+        "EntityCollision",
+        "EntityAction",
+        "Mass",
+        "MapCollision",
+        "XDirection"
+    ],
+    "overrides": {
+        "Hitbox": {"width": 48, "height": 48},
+        "Velocity": {"x": 0, "y": 0},
+        "NextPosition": {"x": 0, "y": 0},
+        "EntityAction": {"action_name": "push_block"},
+        "Mass": {"value": 60.0},
+        "XDirection": {"value": 0}
+    }
+}

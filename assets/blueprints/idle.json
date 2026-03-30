@@ -9,7 +9,8 @@
         "Mass",
         "AI",
         "Walk",
-        "MapCollision"
+        "MapCollision",
+        "EntityCollision"
     ],
     "overrides": {
         "Mass": {"value": 60.0},

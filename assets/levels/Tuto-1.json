@@ -8,8 +8,10 @@
         "gravity_system",
         "jump_system",
         "movement_system",
+        "entity_action_system",
         "move_prediction_system",
         "map_collision_system",
+        "entity_collision_system",
         "sync_hitbox_system",
         "camera_system"
     ],
